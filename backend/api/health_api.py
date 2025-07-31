@@ -43,7 +43,9 @@ async def detailed_health_check(request: Request):
 
         # Check database connectivity
         try:
-            from database.config.connection_pool import PostgreSQLConnectionManager
+            from database.config.connection_pool import (
+                PostgreSQLConnectionManager,
+            )
 
             connection_manager = PostgreSQLConnectionManager()
             health_result = await connection_manager.health_check()
@@ -210,7 +212,10 @@ async def database_health_check(request: Request):
                         "record_count": count,
                     }
                 except Exception as e:
-                    tables_status[table_name] = {"status": "unhealthy", "error": str(e)}
+                    tables_status[table_name] = {
+                        "status": "unhealthy",
+                        "error": str(e),
+                    }
 
         return {
             "status": (

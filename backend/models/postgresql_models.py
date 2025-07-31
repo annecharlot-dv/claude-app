@@ -111,7 +111,10 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     email = Column(String(255), nullable=False, index=True)
     first_name = Column(String(100), nullable=False)
@@ -162,7 +165,10 @@ class Page(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     title = Column(String(255), nullable=False)
     slug = Column(String(255), nullable=False, index=True)
@@ -202,7 +208,10 @@ class Lead(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
@@ -235,7 +244,11 @@ class Lead(Base):
     __table_args__ = (
         Index("idx_leads_tenant_email", "tenant_id", "email"),
         Index("idx_leads_status_created", "status", "created_at"),
-        Index("idx_leads_custom_fields_gin", "custom_fields", postgresql_using="gin"),
+        Index(
+            "idx_leads_custom_fields_gin",
+            "custom_fields",
+            postgresql_using="gin",
+        ),
     )
 
 
@@ -246,7 +259,10 @@ class Form(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     title = Column(String(255), nullable=False)
@@ -339,7 +355,10 @@ class Widget(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     type = Column(String(50), nullable=False, index=True)
@@ -366,7 +385,10 @@ class TourSlot(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     staff_user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
@@ -394,7 +416,10 @@ class Tour(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     lead_id = Column(
         UUID(as_uuid=True), ForeignKey("leads.id"), nullable=False, index=True
@@ -430,7 +455,10 @@ class Resource(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     type = Column(String(100), nullable=False, index=True)
@@ -459,7 +487,10 @@ class Booking(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     resource_id = Column(
         UUID(as_uuid=True),
@@ -529,7 +560,10 @@ class Product(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     description = Column(Text)
@@ -558,7 +592,10 @@ class Invoice(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
@@ -619,7 +656,10 @@ class Payment(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     invoice_id = Column(UUID(as_uuid=True), ForeignKey("invoices.id"), index=True)
     amount = Column(Integer, nullable=False)  # Amount in cents
@@ -654,7 +694,10 @@ class Transaction(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     payment_id = Column(UUID(as_uuid=True), ForeignKey("payments.id"), index=True)
@@ -689,7 +732,10 @@ class Subscription(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
@@ -733,7 +779,10 @@ class MessageTemplate(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     template_type = Column(String(50), nullable=False, index=True)
@@ -766,7 +815,10 @@ class Workflow(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     name = Column(String(255), nullable=False)
     description = Column(Text)
@@ -794,7 +846,10 @@ class MessageQueue(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     recipient_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
@@ -835,7 +890,10 @@ class AutomationLog(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(
-        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
     )
     workflow_id = Column(
         UUID(as_uuid=True),
@@ -895,7 +953,11 @@ class NotificationPreference(Base):
             "channel",
             name="unique_user_notification_channel",
         ),
-        Index("idx_notification_preferences_user_type", "user_id", "notification_type"),
+        Index(
+            "idx_notification_preferences_user_type",
+            "user_id",
+            "notification_type",
+        ),
         Index(
             "idx_notification_preferences_settings_gin",
             "preference_settings",

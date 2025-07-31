@@ -1307,7 +1307,8 @@ async def book_tour(tour_data: TourBooking):
         # Get tour slot
         result = await session.execute(
             select(TourSlot).where(
-                TourSlot.id == tour_data.tour_slot_id, TourSlot.is_available.is_(True)
+                TourSlot.id == tour_data.tour_slot_id,
+                TourSlot.is_available.is_(True),
             )
         )
         slot = result.scalar_one_or_none()
@@ -1317,7 +1318,8 @@ async def book_tour(tour_data: TourBooking):
         # Check if slot is already booked
         existing_tours_result = await session.execute(
             select(Tour).where(
-                Tour.tour_slot_id == tour_data.tour_slot_id, Tour.status != "cancelled"
+                Tour.tour_slot_id == tour_data.tour_slot_id,
+                Tour.status != "cancelled",
             )
         )
         existing_tours = existing_tours_result.scalars().all()
@@ -1430,7 +1432,8 @@ async def get_dashboard_stats(
 
         new_leads_this_month_result = await session.execute(
             select(func.count(Lead.id)).where(
-                Lead.tenant_id == current_user.tenant_id, Lead.created_at >= this_month
+                Lead.tenant_id == current_user.tenant_id,
+                Lead.created_at >= this_month,
             )
         )
         new_leads_this_month = new_leads_this_month_result.scalar()
@@ -1445,7 +1448,8 @@ async def get_dashboard_stats(
 
         total_forms_result = await session.execute(
             select(func.count(Form.id)).where(
-                Form.tenant_id == current_user.tenant_id, Form.is_active.is_(True)
+                Form.tenant_id == current_user.tenant_id,
+                Form.is_active.is_(True),
             )
         )
         total_forms = total_forms_result.scalar()
@@ -1710,7 +1714,10 @@ async def save_page_builder_data(
     )
 
     if success:
-        return {"message": "Page builder data saved successfully", "page_id": page_id}
+        return {
+            "message": "Page builder data saved successfully",
+            "page_id": page_id,
+        }
     else:
         raise HTTPException(status_code=500, detail="Failed to save page builder data")
 
@@ -1838,7 +1845,8 @@ app.add_middleware(
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -2085,3 +2093,6 @@ async def shutdown_event_cleanup():
         logger.info("✅ Performance monitoring stopped")
     except Exception as e:
         logger.error(f"❌ Error during shutdown: {e}")
+
+
+handler = app

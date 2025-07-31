@@ -438,7 +438,7 @@ async def process_subscription_billing(
     try:
         processed_invoices = await financial_kernel.process_subscription_billing(
             tenant_id
-        )  # noqa: E501
+        )
 
         return {
             "message": (f"Processed {len(processed_invoices)} subscription billings"),

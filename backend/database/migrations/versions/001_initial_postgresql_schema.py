@@ -381,7 +381,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        "idx_templates_industry_active", "templates", ["industry_module", "is_active"]
+        "idx_templates_industry_active",
+        "templates",
+        ["industry_module", "is_active"],
     )
     op.create_index(
         "idx_templates_layout_gin",
@@ -515,7 +517,10 @@ def upgrade() -> None:
     # Add full-text search support for pages
     op.execute("ALTER TABLE pages ADD COLUMN search_vector tsvector")
     op.create_index(
-        "idx_pages_search_gin", "pages", ["search_vector"], postgresql_using="gin"
+        "idx_pages_search_gin",
+        "pages",
+        ["search_vector"],
+        postgresql_using="gin",
     )
 
     # Create search vector update function

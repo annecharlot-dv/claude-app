@@ -35,7 +35,9 @@ async def setup_development_database():
     try:
         # Create async engine for SQLite
         engine = create_async_engine(
-            database_url, echo=True, future=True  # Show SQL queries in development
+            database_url,
+            echo=True,  # Show SQL queries in development
+            future=True,
         )
 
         # Create all tables

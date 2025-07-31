@@ -136,7 +136,7 @@ class PostgreSQLBaseKernel(ABC):
             record = result.scalar_one_or_none()
 
             logger.debug(
-                f"Retrieved {model_class.__name__} by " f"{field_name}: {field_value}"
+                f"Retrieved {model_class.__name__} by {field_name}: " f"{field_value}"
             )
             return record
 
@@ -393,7 +393,7 @@ class PostgreSQLBaseKernel(ABC):
                 return list(records)
             else:
                 logger.warning(
-                    f"{model_class.__name__} does not have " f"{search_field} field"
+                    f"{model_class.__name__} does not have {search_field} " f"field"
                 )
                 return []
 

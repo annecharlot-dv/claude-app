@@ -45,7 +45,10 @@ class PostgreSQLIdentityKernel(PostgreSQLBaseKernel):
             user = await self.create_record(User, user_data, tenant_id)
 
             # Create password record
-            password_data = {"user_id": user.id, "hashed_password": hashed_password}
+            password_data = {
+                "user_id": user.id,
+                "hashed_password": hashed_password,
+            }
             await self.create_record(UserPassword, password_data)
 
             # Convert to dict for response
@@ -163,7 +166,10 @@ class PostgreSQLIdentityKernel(PostgreSQLBaseKernel):
 
             # Update last login
             await self.update_record(
-                User, user.id, {"last_login": datetime.utcnow()}, str(tenant.id)
+                User,
+                user.id,
+                {"last_login": datetime.utcnow()},
+                str(tenant.id),
             )
 
             # Return user and tenant info
@@ -325,7 +331,11 @@ class PostgreSQLIdentityKernel(PostgreSQLBaseKernel):
             else:
                 expire = datetime.utcnow() + timedelta(minutes=30)
 
-            to_encode = {"sub": user_id, "exp": expire, "iat": datetime.utcnow()}
+            to_encode = {
+                "sub": user_id,
+                "exp": expire,
+                "iat": datetime.utcnow(),
+            }
 
             encoded_jwt = jwt.encode(
                 to_encode, self.secret_key, algorithm=self.algorithm

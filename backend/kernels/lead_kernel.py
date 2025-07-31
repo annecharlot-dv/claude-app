@@ -590,7 +590,12 @@ class LeadKernel(BaseKernel):
 
         # Leads by status
         status_pipeline = [
-            {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start_date}}},
+            {
+                "$match": {
+                    "tenant_id": tenant_id,
+                    "created_at": {"$gte": start_date},
+                }
+            },
             {"$group": {"_id": "$status", "count": {"$sum": 1}}},
         ]
         status_results = await self.leads_collection.aggregate(status_pipeline).to_list(
@@ -600,7 +605,12 @@ class LeadKernel(BaseKernel):
 
         # Leads by source
         source_pipeline = [
-            {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start_date}}},
+            {
+                "$match": {
+                    "tenant_id": tenant_id,
+                    "created_at": {"$gte": start_date},
+                }
+            },
             {"$group": {"_id": "$source", "count": {"$sum": 1}}},
         ]
         source_results = await self.leads_collection.aggregate(source_pipeline).to_list(
@@ -622,7 +632,12 @@ class LeadKernel(BaseKernel):
 
         # Average lead score
         score_pipeline = [
-            {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start_date}}},
+            {
+                "$match": {
+                    "tenant_id": tenant_id,
+                    "created_at": {"$gte": start_date},
+                }
+            },
             {"$group": {"_id": None, "avg_score": {"$avg": "$score"}}},
         ]
         score_results = await self.leads_collection.aggregate(score_pipeline).to_list(
@@ -642,7 +657,11 @@ class LeadKernel(BaseKernel):
 
     # Helper Methods
     async def _log_lead_activity(
-        self, tenant_id: str, lead_id: str, activity_type: str, details: Dict[str, Any]
+        self,
+        tenant_id: str,
+        lead_id: str,
+        activity_type: str,
+        details: Dict[str, Any],
     ):
         """Log lead activity for audit trail"""
         activity = {
@@ -681,7 +700,12 @@ class LeadKernel(BaseKernel):
 
             return {
                 "status": "healthy",
-                "collections": ["leads", "forms", "tour_slots", "lead_activities"],
+                "collections": [
+                    "leads",
+                    "forms",
+                    "tour_slots",
+                    "lead_activities",
+                ],
                 "last_check": datetime.utcnow().isoformat(),
             }
         except Exception as e:
