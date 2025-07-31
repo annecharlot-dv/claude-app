@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 @pytest.mark.asyncio
 async def test_postgresql_setup():
     """Test PostgreSQL setup and basic operations"""
+    if not os.getenv('DATABASE_URL'):
+        logger.info("⏭️ Skipping PostgreSQL test - DATABASE_URL not configured")
+        return
+    
     try:
         # Initialize connection manager
         connection_manager = await get_connection_manager()
