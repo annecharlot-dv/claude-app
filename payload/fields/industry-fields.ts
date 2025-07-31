@@ -14,42 +14,15 @@ export const industryRoleField: Field = {
   admin: {
     description: 'User role within the organization',
   },
-  options: async ({ req }) => {
-    // Get tenant industry to determine available roles
-    let tenant;
-    if (req.user?.tenantId) {
-      try {
-        tenant = await req.payload.findByID({
-          collection: 'tenants',
-          id: req.user.tenantId,
-        });
-      } catch (error) {
-        console.error('Failed to fetch tenant for role options:', error);
-      }
-    }
-
-    const industryConfig = tenant ? INDUSTRY_CONFIGS[tenant.industryModule] : null;
-    const baseRoles = [
-      { label: 'Platform Admin', value: 'platform_admin' },
-      { label: 'Account Owner', value: 'account_owner' },
-      { label: 'Administrator', value: 'administrator' },
-      { label: 'Property Manager', value: 'property_manager' },
-      { label: 'Front Desk', value: 'front_desk' },
-      { label: 'Maintenance', value: 'maintenance' },
-      { label: 'Security', value: 'security' },
-    ];
-
-    // Add industry-specific roles
-    if (industryConfig?.userRoles) {
-      const industryRoles = industryConfig.userRoles.map((role: string) => ({
-        label: role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-        value: role,
-      }));
-      baseRoles.push(...industryRoles);
-    }
-
-    return baseRoles;
-  },
+  options: [
+    { label: 'Platform Admin', value: 'platform_admin' },
+    { label: 'Account Owner', value: 'account_owner' },
+    { label: 'Administrator', value: 'administrator' },
+    { label: 'Property Manager', value: 'property_manager' },
+    { label: 'Front Desk', value: 'front_desk' },
+    { label: 'Maintenance', value: 'maintenance' },
+    { label: 'Security', value: 'security' },
+  ],
 };
 
 // Dynamic lead source field
@@ -59,36 +32,12 @@ export const leadSourceField: Field = {
   admin: {
     description: 'How this lead was acquired',
   },
-  options: async ({ req }) => {
-    let tenant;
-    if (req.user?.tenantId) {
-      try {
-        tenant = await req.payload.findByID({
-          collection: 'tenants',
-          id: req.user.tenantId,
-        });
-      } catch (error) {
-        console.error('Failed to fetch tenant for source options:', error);
-      }
-    }
-
-    const industryConfig = tenant ? INDUSTRY_CONFIGS[tenant.industryModule] : null;
-    const baseSources = [
-      { label: 'Website', value: 'website' },
-      { label: 'Referral', value: 'referral' },
-      { label: 'Phone', value: 'phone' },
-      { label: 'Walk-in', value: 'walk_in' },
-    ];
-
-    if (industryConfig?.leadSources) {
-      return industryConfig.leadSources.map((source: string) => ({
-        label: source.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-        value: source,
-      }));
-    }
-
-    return baseSources;
-  },
+  options: [
+    { label: 'Website', value: 'website' },
+    { label: 'Referral', value: 'referral' },
+    { label: 'Phone', value: 'phone' },
+    { label: 'Walk-in', value: 'walk_in' },
+  ],
 };
 
 // Industry-specific custom fields
@@ -97,37 +46,6 @@ export const industryCustomFields: Field = {
   type: 'json',
   admin: {
     description: 'Industry-specific additional fields',
-    components: {
-      Field: 'payload/fields/IndustryCustomFieldsComponent',
-    },
-  },
-  validate: async (value, { req }) => {
-    // Get tenant to validate required fields
-    let tenant;
-    if (req.user?.tenantId) {
-      try {
-        tenant = await req.payload.findByID({
-          collection: 'tenants',
-          id: req.user.tenantId,
-        });
-      } catch (error) {
-        return true; // Skip validation if tenant fetch fails
-      }
-    }
-
-    const industryConfig = tenant ? INDUSTRY_CONFIGS[tenant.industryModule] : null;
-    if (!industryConfig?.requiredFields) return true;
-
-    // Check required fields
-    const missingFields = industryConfig.requiredFields.filter(
-      (field: string) => !value?.[field]
-    );
-
-    if (missingFields.length > 0) {
-      return `Missing required fields: ${missingFields.join(', ')}`;
-    }
-
-    return true;
   },
 };
 
@@ -136,17 +54,6 @@ export const tenantRelationshipField = (collection: string): Field => ({
   name: collection,
   type: 'relationship',
   relationTo: collection,
-  filterOptions: ({ req }) => {
-    // Filter relationships by tenant
-    if (req.user?.tenantId && req.user.role !== 'platform_admin') {
-      return {
-        tenantId: {
-          equals: req.user.tenantId,
-        },
-      };
-    }
-    return {};
-  },
   admin: {
     description: `Related ${collection} within your organization`,
   },
@@ -181,33 +88,6 @@ export const searchableTextField = (name: string, label: string): Field => ({
   admin: {
     description: `${label} (searchable)`,
   },
-  hooks: {
-    afterChange: [
-      async ({ value, req, doc }) => {
-        // Update search index
-        if (value && doc.tenantId) {
-          try {
-            await fetch('/api/search/index', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Internal-API': 'true',
-              },
-              body: JSON.stringify({
-                collection: req.collection?.config?.slug,
-                documentId: doc.id,
-                tenantId: doc.tenantId,
-                field: name,
-                value,
-              }),
-            });
-          } catch (error) {
-            console.error('Search indexing failed:', error);
-          }
-        }
-      },
-    ],
-  },
 });
 
 // Rich text field with industry-specific templates
@@ -215,40 +95,7 @@ export const industryRichTextField = (name: string): Field => ({
   name,
   type: 'richText',
   admin: {
-    elements: [
-      'h1', 'h2', 'h3', 'h4',
-      'blockquote',
-      'ul', 'ol', 'li',
-      'link',
-      'textAlign',
-    ],
-    leaves: [
-      'bold', 'italic', 'underline', 'strikethrough', 'code',
-    ],
-  },
-  hooks: {
-    beforeChange: [
-      async ({ value, req }) => {
-        // Add industry-specific content processing
-        if (req.user?.tenantId) {
-          try {
-            const tenant = await req.payload.findByID({
-              collection: 'tenants',
-              id: req.user.tenantId,
-            });
-            
-            // Apply industry-specific content transformations
-            if (tenant.industryModule === 'government') {
-              // Add accessibility improvements for government content
-              // This would process the rich text to ensure compliance
-            }
-          } catch (error) {
-            console.error('Industry content processing failed:', error);
-          }
-        }
-        return value;
-      },
-    ],
+    description: 'Rich text content',
   },
 });
 
@@ -266,7 +113,7 @@ export const createTenantField = (): Field => ({
   access: {
     update: ({ req }) => req.user?.role === 'platform_admin',
   },
-  defaultValue: ({ req }) => req.user?.tenantId,
+  defaultValue: 'default-tenant',
 });
 
 export const createTimestampFields = (): Field[] => [
