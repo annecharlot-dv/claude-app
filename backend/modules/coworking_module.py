@@ -174,7 +174,11 @@ class CoworkingModule(BaseModule):
             "maintenance": {
                 "display_name": "Facilities Manager",
                 "description": "Maintains spaces and equipment",
-                "permissions": ["spaces.view", "spaces.update", "maintenance.manage"],
+                "permissions": [
+                    "spaces.view",
+                    "spaces.update",
+                    "maintenance.manage",
+                ],
                 "level": 2,
             },
             "member": {
@@ -297,13 +301,21 @@ class CoworkingModule(BaseModule):
                     "type": "booking_overview",
                     "title": "Space Utilization",
                     "position": {"row": 1, "col": 3, "span": 2},
-                    "metrics": ["today_bookings", "utilization_rate", "popular_spaces"],
+                    "metrics": [
+                        "today_bookings",
+                        "utilization_rate",
+                        "popular_spaces",
+                    ],
                 },
                 {
                     "type": "revenue_summary",
                     "title": "Membership Revenue",
                     "position": {"row": 2, "col": 1, "span": 1},
-                    "metrics": ["monthly_revenue", "new_memberships", "churn_rate"],
+                    "metrics": [
+                        "monthly_revenue",
+                        "new_memberships",
+                        "churn_rate",
+                    ],
                 },
                 {
                     "type": "events_calendar",
@@ -338,7 +350,11 @@ class CoworkingModule(BaseModule):
                     "action": "member_signup",
                     "icon": "user-plus",
                 },
-                {"name": "Schedule Tour", "action": "tour_booking", "icon": "clock"},
+                {
+                    "name": "Schedule Tour",
+                    "action": "tour_booking",
+                    "icon": "clock",
+                },
             ],
         }
 
@@ -352,7 +368,10 @@ class CoworkingModule(BaseModule):
                         "type": "hero_banner",
                         "config": {
                             "title": "Where Innovation Meets Collaboration",
-                            "subtitle": "Join our vibrant coworking community and grow your business",
+                            "subtitle": (
+                                "Join our vibrant coworking community "
+                                "and grow your business"
+                            ),
                             "cta_text": "Tour Our Space",
                             "cta_action": "schedule_tour",
                         },
@@ -387,7 +406,10 @@ class CoworkingModule(BaseModule):
                 "blocks": [
                     {
                         "type": "pricing_comparison",
-                        "config": {"show_features": True, "allow_online_signup": True},
+                        "config": {
+                            "show_features": True,
+                            "allow_online_signup": True,
+                        },
                     },
                     {
                         "type": "member_benefits",
@@ -444,7 +466,11 @@ class CoworkingModule(BaseModule):
                     {"label": "Name", "type": "text", "required": True},
                     {"label": "Email", "type": "email", "required": True},
                     {"label": "Phone", "type": "phone", "required": False},
-                    {"label": "Preferred Date", "type": "date", "required": True},
+                    {
+                        "label": "Preferred Date",
+                        "type": "date",
+                        "required": True,
+                    },
                     {
                         "label": "Preferred Time",
                         "type": "select",
@@ -481,7 +507,11 @@ class CoworkingModule(BaseModule):
                         "label": "Member Status",
                         "type": "select",
                         "required": True,
-                        "options": ["Current Member", "Former Member", "Not a Member"],
+                        "options": [
+                            "Current Member",
+                            "Former Member",
+                            "Not a Member",
+                        ],
                     },
                     {
                         "label": "Dietary Restrictions",
@@ -579,7 +609,10 @@ class CoworkingModule(BaseModule):
                 "priority_booking": True,
                 "extended_hours": True,
             },
-            "no_show_policy": {"mark_no_show_minutes": 15, "penalty_for_no_show": True},
+            "no_show_policy": {
+                "mark_no_show_minutes": 15,
+                "penalty_for_no_show": True,
+            },
         }
 
     def get_dashboard_metrics(self) -> List[Dict[str, Any]]:

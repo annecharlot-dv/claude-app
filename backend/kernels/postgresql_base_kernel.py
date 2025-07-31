@@ -7,7 +7,7 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +43,10 @@ class PostgreSQLBaseKernel(ABC):
 
     # Generic CRUD operations
     async def create_record(
-        self, model_class: Type[Base], data: Dict[str, Any], tenant_id: str = None
+        self,
+        model_class: Type[Base],
+        data: Dict[str, Any],
+        tenant_id: str = None,
     ) -> Optional[Base]:
         """Generic record creation with tenant context"""
         try:
@@ -84,7 +87,7 @@ class PostgreSQLBaseKernel(ABC):
     async def get_by_id(
         self,
         model_class: Type[Base],
-        record_id: Union[str, uuid.UUID],
+        record_id: str,
         tenant_id: str = None,
     ) -> Optional[Base]:
         """Generic record retrieval by ID with tenant context"""
@@ -133,7 +136,7 @@ class PostgreSQLBaseKernel(ABC):
             record = result.scalar_one_or_none()
 
             logger.debug(
-                f"Retrieved {model_class.__name__} by {field_name}: {field_value}"
+                f"Retrieved {model_class.__name__} by " f"{field_name}: {field_value}"
             )
             return record
 
@@ -213,7 +216,7 @@ class PostgreSQLBaseKernel(ABC):
     async def update_record(
         self,
         model_class: Type[Base],
-        record_id: Union[str, uuid.UUID],
+        record_id: str,
         updates: Dict[str, Any],
         tenant_id: str = None,
     ) -> Optional[Base]:
@@ -256,7 +259,7 @@ class PostgreSQLBaseKernel(ABC):
     async def delete_record(
         self,
         model_class: Type[Base],
-        record_id: Union[str, uuid.UUID],
+        record_id: str,
         tenant_id: str = None,
     ) -> bool:
         """Generic record deletion with tenant context"""
@@ -278,7 +281,8 @@ class PostgreSQLBaseKernel(ABC):
 
             deleted = result.rowcount > 0
             logger.debug(
-                f"Deleted {model_class.__name__} record: {record_id} - Success: {deleted}"
+                f"Deleted {model_class.__name__} record: {record_id} - "
+                f"Success: {deleted}"
             )
             return deleted
 
@@ -372,7 +376,8 @@ class PostgreSQLBaseKernel(ABC):
                     )
                     .order_by(
                         func.ts_rank(
-                            search_vector, func.plainto_tsquery("english", search_query)
+                            search_vector,
+                            func.plainto_tsquery("english", search_query),
                         ).desc()
                     )
                     .limit(limit)
@@ -382,12 +387,13 @@ class PostgreSQLBaseKernel(ABC):
                 records = result.scalars().all()
 
                 logger.debug(
-                    f"Full-text search returned {len(records)} results for: {search_query}"
+                    f"Full-text search returned {len(records)} results for: "
+                    f"{search_query}"
                 )
                 return list(records)
             else:
                 logger.warning(
-                    f"{model_class.__name__} does not have {search_field} field"
+                    f"{model_class.__name__} does not have " f"{search_field} field"
                 )
                 return []
 

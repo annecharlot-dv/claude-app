@@ -4,7 +4,6 @@ Replaces Pydantic models with proper relational models
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import (
     JSON,
@@ -401,7 +400,10 @@ class Tour(Base):
         UUID(as_uuid=True), ForeignKey("leads.id"), nullable=False, index=True
     )
     tour_slot_id = Column(
-        UUID(as_uuid=True), ForeignKey("tour_slots.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("tour_slots.id"),
+        nullable=False,
+        index=True,
     )
     staff_user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
@@ -460,7 +462,10 @@ class Booking(Base):
         UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
     )
     resource_id = Column(
-        UUID(as_uuid=True), ForeignKey("resources.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("resources.id"),
+        nullable=False,
+        index=True,
     )
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
@@ -482,7 +487,11 @@ class Booking(Base):
         Index("idx_bookings_tenant_resource", "tenant_id", "resource_id"),
         Index("idx_bookings_time_range", "start_time", "end_time"),
         Index("idx_bookings_status_created", "status", "created_at"),
-        Index("idx_bookings_metadata_gin", "booking_metadata", postgresql_using="gin"),
+        Index(
+            "idx_bookings_metadata_gin",
+            "booking_metadata",
+            postgresql_using="gin",
+        ),
     )
 
 
@@ -493,7 +502,10 @@ class AvailabilitySchedule(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     resource_id = Column(
-        UUID(as_uuid=True), ForeignKey("resources.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("resources.id"),
+        nullable=False,
+        index=True,
     )
     day_of_week = Column(Integer, nullable=False, index=True)
     start_time = Column(DateTime(timezone=True), nullable=False)
@@ -570,7 +582,11 @@ class Invoice(Base):
     __table_args__ = (
         Index("idx_invoices_tenant_status", "tenant_id", "status"),
         Index("idx_invoices_due_date", "due_date"),
-        Index("idx_invoices_metadata_gin", "invoice_metadata", postgresql_using="gin"),
+        Index(
+            "idx_invoices_metadata_gin",
+            "invoice_metadata",
+            postgresql_using="gin",
+        ),
     )
 
 
@@ -623,7 +639,11 @@ class Payment(Base):
     __table_args__ = (
         Index("idx_payments_tenant_status", "tenant_id", "status"),
         Index("idx_payments_external_id", "external_id"),
-        Index("idx_payments_metadata_gin", "payment_metadata", postgresql_using="gin"),
+        Index(
+            "idx_payments_metadata_gin",
+            "payment_metadata",
+            postgresql_using="gin",
+        ),
     )
 
 
@@ -675,7 +695,10 @@ class Subscription(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("products.id"),
+        nullable=False,
+        index=True,
     )
     status = Column(String(50), default="active", index=True)
     billing_cycle = Column(String(20), default="monthly")
@@ -798,7 +821,9 @@ class MessageQueue(Base):
         Index("idx_message_queue_tenant_status", "tenant_id", "status"),
         Index("idx_message_queue_scheduled", "scheduled_at"),
         Index(
-            "idx_message_queue_metadata_gin", "message_metadata", postgresql_using="gin"
+            "idx_message_queue_metadata_gin",
+            "message_metadata",
+            postgresql_using="gin",
         ),
     )
 
@@ -813,7 +838,10 @@ class AutomationLog(Base):
         UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
     )
     workflow_id = Column(
-        UUID(as_uuid=True), ForeignKey("workflows.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("workflows.id"),
+        nullable=False,
+        index=True,
     )
     trigger_event = Column(String(100), nullable=False, index=True)
     status = Column(String(50), default="completed", index=True)
@@ -848,7 +876,8 @@ class NotificationPreference(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     notification_type = Column(String(50), nullable=False, index=True)
-    channel = Column(String(20), nullable=False, index=True)  # email, sms, push
+    # email, sms, push
+    channel = Column(String(20), nullable=False, index=True)
     is_enabled = Column(Boolean, default=True, index=True)
 
     # JSONB for preference settings

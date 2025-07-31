@@ -3,23 +3,20 @@ PostgreSQL Adapter for Claude Platform
 Replaces MongoDB with optimized PostgreSQL operations
 """
 
-import asyncio
 import json
 import logging
 import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-
-import asyncpg
-from fastapi import HTTPException
-
-# Import our connection management
-sys.path.append(str(Path(__file__).parent / "database" / "config"))
+from typing import Any, Dict, List, Optional
 
 from connection_pool import get_connection_manager, get_query_builder
+
+# Import our connection management
 from postgresql_optimizer import get_postgresql_optimizer
+
+sys.path.append(str(Path(__file__).parent / "database" / "config"))
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +119,11 @@ class PostgreSQLAdapter:
         return dict(result) if result else None
 
     async def get_users(
-        self, tenant_id: str, filters: Dict = None, limit: int = 100, skip: int = 0
+        self,
+        tenant_id: str,
+        filters: Dict = None,
+        limit: int = 100,
+        skip: int = 0,
     ) -> List[Dict[str, Any]]:
         """Get users with tenant filtering and pagination"""
 
@@ -176,7 +177,11 @@ class PostgreSQLAdapter:
             return page
 
     async def get_pages(
-        self, tenant_id: str, filters: Dict = None, limit: int = 100, skip: int = 0
+        self,
+        tenant_id: str,
+        filters: Dict = None,
+        limit: int = 100,
+        skip: int = 0,
     ) -> List[Dict[str, Any]]:
         """Get pages with tenant filtering and pagination"""
 
@@ -215,10 +220,14 @@ class PostgreSQLAdapter:
         """Full-text search pages"""
 
         sql = """
-            SELECT *, ts_rank(to_tsvector('english', search_keywords), plainto_tsquery('english', $1)) as rank
-            FROM pages 
-            WHERE tenant_id = $2 
-            AND to_tsvector('english', search_keywords) @@ plainto_tsquery('english', $1)
+            SELECT *, ts_rank(
+                to_tsvector('english', search_keywords),
+                plainto_tsquery('english', $1)
+            ) as rank
+            FROM pages
+            WHERE tenant_id = $2
+            AND to_tsvector('english', search_keywords) @@
+                plainto_tsquery('english', $1)
             AND status = 'published'
             ORDER BY rank DESC, updated_at DESC
             LIMIT $3
@@ -264,7 +273,11 @@ class PostgreSQLAdapter:
             return lead
 
     async def get_leads(
-        self, tenant_id: str, filters: Dict = None, limit: int = 100, skip: int = 0
+        self,
+        tenant_id: str,
+        filters: Dict = None,
+        limit: int = 100,
+        skip: int = 0,
     ) -> List[Dict[str, Any]]:
         """Get leads with tenant filtering and pagination"""
 
@@ -327,9 +340,13 @@ class PostgreSQLAdapter:
             {"id": str(uuid.uuid4()), "created_at": datetime.utcnow()}
         )
 
-        # Form submissions don't need tenant_id directly as they're linked through forms
+        # Form submissions don't need tenant_id directly as they're linked
+        # through forms
         sql = """
-            INSERT INTO form_submissions (id, form_id, lead_id, data, source_url, ip_address, user_agent, created_at)
+            INSERT INTO form_submissions (
+                id, form_id, lead_id, data, source_url,
+                ip_address, user_agent, created_at
+            )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
         """
@@ -374,7 +391,9 @@ class PostgreSQLAdapter:
         """Record performance metric"""
 
         sql = """
-            INSERT INTO performance_metrics (id, tenant_id, metric_type, value, metadata, recorded_at)
+            INSERT INTO performance_metrics (
+                id, tenant_id, metric_type, value, metadata, recorded_at
+            )
             VALUES ($1, $2, $3, $4, $5, $6)
         """
 
@@ -397,13 +416,14 @@ class PostgreSQLAdapter:
         # Use materialized view for better performance
         sql = (
             """
-            SELECT 
+            SELECT
                 metric_type,
                 COUNT(*) as count,
                 AVG(value) as avg_value,
                 MIN(value) as min_value,
                 MAX(value) as max_value,
-                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY value) as p95_value
+                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY value) as
+                    p95_value
             FROM performance_metrics
             WHERE recorded_at > NOW() - INTERVAL '%s hours'
         """
@@ -440,7 +460,7 @@ class PostgreSQLAdapter:
         """Get cache statistics from materialized view"""
 
         sql = """
-            SELECT 
+            SELECT
                 hit_rate_percentage,
                 cache_hits,
                 cache_misses,
@@ -477,7 +497,6 @@ class PostgreSQLAdapter:
         """Extract searchable text from content blocks"""
 
         text_parts = []
-
         for block in content_blocks:
             if block.get("type") == "text" and block.get("content"):
                 text_parts.append(block["content"])
@@ -496,8 +515,7 @@ class PostgreSQLAdapter:
             pool_health = await self.conn_manager.health_check()
 
             # Check database connectivity
-            sql = "SELECT 1 as health_check"
-            await self.conn_manager.execute_query(sql)
+            await self.conn_manager.execute_query("SELECT 1 as health_check")
 
             # Get basic stats
             stats = await self.conn_manager.get_pool_stats()

@@ -5,19 +5,17 @@ Comprehensive performance testing suite for the Claude platform
 """
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
-
-# Add the backend directory to the Python path
-sys.path.insert(0, str(Path(__file__).parent))
 
 from dotenv import load_dotenv
 
 from database.config.connection_pool import PostgreSQLConnectionManager
-from performance.database_optimizer import get_db_optimizer
 from performance.monitor import get_performance_monitor
 from performance.test_suite import run_performance_tests
+
+# Add the backend directory to the Python path
+sys.path.insert(0, str(Path(__file__).parent))
 
 # Load environment variables
 load_dotenv()
@@ -37,7 +35,8 @@ async def setup_test_environment():
     connection_manager = PostgreSQLConnectionManager()
 
     # Initialize performance systems
-    db_optimizer = await get_db_optimizer(connection_manager)
+    # db_optimizer = await get_db_optimizer(connection_manager)
+    # Unused in current implementation
     monitor = await get_performance_monitor()
     await monitor.start_monitoring()
 
@@ -190,11 +189,13 @@ def print_performance_report(report):
         for result in db_results["results"]:
             status_icon = "✅" if result["status"] == "PASS" else "❌"
             print(
-                f"{status_icon} {result['test_name']:<30} {result['avg_time_ms']:>8.2f}ms"
+                f"{status_icon} {result['test_name']:<30} "
+                f"{result['avg_time_ms']:>8.2f}ms"
             )
             if result["status"] == "FAIL":
                 print(
-                    f"   └─ P95: {result['p95_time_ms']:.2f}ms, Success: {result['success_rate']:.1f}%"
+                    f"   └─ P95: {result['p95_time_ms']:.2f}ms, "
+                    f"Success: {result['success_rate']:.1f}%"
                 )
 
     print("\n" + "=" * 80)
@@ -217,7 +218,7 @@ async def main():
         from datetime import datetime
 
         filename = (
-            f"performance_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            f"performance_report_" f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
         )
         with open(filename, "w") as f:
             json.dump(report, f, indent=2, default=str)
@@ -229,7 +230,8 @@ async def main():
             db_results = report["results"]["tests"]["database"]
             if db_results["summary"]["pass_rate"] < 100:
                 print(
-                    f"\n⚠️  Some tests failed. Pass rate: {db_results['summary']['pass_rate']:.1f}%"
+                    f"\n⚠️  Some tests failed. Pass rate: "
+                    f"{db_results['summary']['pass_rate']:.1f}%"
                 )
                 return 1
 
@@ -244,7 +246,7 @@ async def main():
         # Cleanup
         try:
             await cleanup_test_data(connection_manager)
-        except:
+        except Exception:
             pass
 
 

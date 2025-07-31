@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import jwt
 from passlib.context import CryptContext
-from sqlalchemy import and_, select
+from sqlalchemy import select
 
 from kernels.postgresql_base_kernel import PostgreSQLBaseKernel
 from models.postgresql_models import Tenant, User, UserPassword
@@ -406,7 +406,7 @@ class PostgreSQLIdentityKernel(PostgreSQLBaseKernel):
 
         except Exception as e:
             logger.error(
-                f"Failed to check permission {permission} for user {user_id}: {e}"
+                f"Failed to check permission {permission} for user " f"{user_id}: {e}"
             )
             return False
 
@@ -468,8 +468,10 @@ class PostgreSQLIdentityKernel(PostgreSQLBaseKernel):
                 "kernel": "PostgreSQLIdentityKernel",
                 "tables": ["tenants", "users", "user_passwords"],
                 "test_results": {
-                    "tenant_query": "success" if tenant_test is not None else "no_data",
-                    "user_query": "success" if user_test is not None else "no_data",
+                    "tenant_query": (
+                        "success" if tenant_test is not None else "no_data"
+                    ),
+                    "user_query": ("success" if user_test is not None else "no_data"),
                 },
                 "last_check": datetime.utcnow().isoformat(),
             }

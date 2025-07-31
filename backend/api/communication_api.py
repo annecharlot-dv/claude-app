@@ -105,7 +105,9 @@ async def get_communication_kernel(request: Request) -> CommunicationKernel:
 
 # Template Management Endpoints
 @router.post(
-    "/templates", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED
+    "/templates",
+    response_model=TemplateResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_template(
     request: CreateTemplateRequest,
@@ -191,7 +193,8 @@ async def get_template(
 
         if not template:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Template not found",
             )
 
         return TemplateResponse(
@@ -216,7 +219,9 @@ async def get_template(
 
 # Workflow Management Endpoints
 @router.post(
-    "/workflows", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED
+    "/workflows",
+    response_model=WorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_workflow(
     request: CreateWorkflowRequest,
@@ -537,7 +542,8 @@ async def get_queue_status(
         async with comm_kernel.connection_manager.get_session() as session:
             queued_result = await session.execute(
                 select(func.count(MessageQueue.id)).where(
-                    MessageQueue.tenant_id == tenant_id, MessageQueue.status == "queued"
+                    MessageQueue.tenant_id == tenant_id,
+                    MessageQueue.status == "queued",
                 )
             )
             queued_count = queued_result.scalar()
@@ -552,7 +558,8 @@ async def get_queue_status(
 
             failed_result = await session.execute(
                 select(func.count(MessageQueue.id)).where(
-                    MessageQueue.tenant_id == tenant_id, MessageQueue.status == "failed"
+                    MessageQueue.tenant_id == tenant_id,
+                    MessageQueue.status == "failed",
                 )
             )
             failed_count = failed_result.scalar()

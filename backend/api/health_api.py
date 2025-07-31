@@ -4,7 +4,6 @@ Provides comprehensive health monitoring for all platform components
 """
 
 from datetime import datetime
-from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Request
 
@@ -185,9 +184,6 @@ async def kernels_health_check(request: Request):
 async def database_health_check(request: Request):
     """Database connectivity and performance check"""
     try:
-        platform_core = request.app.state.platform_core
-        db = platform_core.db
-
         # Test basic connectivity
         from database.config.connection_pool import PostgreSQLConnectionManager
 

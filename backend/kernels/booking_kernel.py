@@ -3,13 +3,18 @@ Resource & Booking Kernel (The "Scheduler")
 Universal scheduling engine for any type of resource
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, select, update
 
 from kernels.base_kernel import BaseKernel
-from models.postgresql_models import AvailabilitySchedule, Booking, Resource, User
+from models.postgresql_models import (
+    AvailabilitySchedule,
+    Booking,
+    Resource,
+    User,
+)
 
 
 class BookingKernel(BaseKernel):
@@ -161,20 +166,22 @@ class BookingKernel(BaseKernel):
         self, booking_id: str, status: str, notes: Optional[str] = None
     ) -> bool:
         """Update booking status"""
-        update_data = {"status": status, "updated_at": datetime.utcnow()}
-        if notes:
-            update_data["notes"] = notes
+        async with self.connection_manager.get_session() as session:
+            update_data = {"status": status, "updated_at": datetime.utcnow()}
+            if notes:
+                update_data["notes"] = notes
 
-        result = await self.db.bookings.update_one(
-            {"id": booking_id}, {"$set": update_data}
-        )
-        return result.modified_count > 0
+            result = await session.execute(
+                update(Booking).where(Booking.id == booking_id).values(**update_data)
+            )
+            await session.commit()
+            return result.rowcount > 0
 
     async def get_resource_utilization(
         self, tenant_id: str, start_date: datetime, end_date: datetime
     ) -> Dict[str, Any]:
         """Get resource utilization statistics"""
-        # This is a simplified version - real implementation would be more complex
+        # This is a simplified version - real implementation would be more
         total_bookings = await self.db.bookings.count_documents(
             {
                 "tenant_id": tenant_id,

@@ -127,7 +127,7 @@ class TenantModel(BaseModel):
 
         if not re.match(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$", v):
             raise ValueError(
-                "Subdomain must contain only lowercase letters, numbers, and hyphens"
+                "Subdomain must contain only lowercase letters, numbers, " "and hyphens"
             )
         if v in ["www", "api", "admin", "app", "mail", "ftp"]:
             raise ValueError("Subdomain is reserved")
@@ -160,7 +160,7 @@ class TenantRepository:
 
     async def initialize(self):
         """Initialize tenant table with indexes"""
-        async with self.connection_manager.get_session() as session:
+        async with self.connection_manager.get_session():
             pass
 
     async def create_tenant(self, tenant_data: TenantModel) -> TenantModel:
@@ -278,7 +278,7 @@ class TenantRepository:
             # Get user count
             user_result = await session.execute(
                 select(func.count(User.id)).where(
-                    User.tenant_id == tenant_id, User.is_active == True
+                    User.tenant_id == tenant_id, User.is_active.is_(True)
                 )
             )
             user_count = user_result.scalar()
@@ -380,7 +380,7 @@ class TenantService:
             settings=settings,
             features=features,
             module_name=f"{industry.value}_module",
-            trial_ends_at=datetime.utcnow() + timedelta(days=14),  # 14-day trial
+            trial_ends_at=datetime.utcnow() + timedelta(days=14),
         )
 
         # Create tenant
@@ -421,6 +421,9 @@ class TenantService:
         }
 
         # Update tenant
-        updates = {"subscription_plan": new_plan, "features": plan_features[new_plan]}
+        updates = {
+            "subscription_plan": new_plan,
+            "features": plan_features[new_plan],
+        }
 
         return await self.tenant_repo.update_tenant(tenant_id, updates)

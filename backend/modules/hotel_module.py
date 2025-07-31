@@ -226,7 +226,7 @@ class HotelModule(BaseModule):
             },
             "member": {
                 "display_name": "Corporate Client",
-                "description": "Regular corporate client with booking privileges",
+                "description": ("Regular corporate client with booking privileges"),
                 "permissions": [
                     "reservations.create",
                     "reservations.view_own",
@@ -299,7 +299,11 @@ class HotelModule(BaseModule):
                 "name": "Event Coordination",
                 "path": "/admin/events",
                 "icon": "users",
-                "roles": ["property_manager", "administrator", "account_owner"],
+                "roles": [
+                    "property_manager",
+                    "administrator",
+                    "account_owner",
+                ],
             },
             {
                 "name": "Venue Website",
@@ -333,13 +337,21 @@ class HotelModule(BaseModule):
                     "type": "booking_overview",
                     "title": "Today's Events",
                     "position": {"row": 1, "col": 3, "span": 2},
-                    "metrics": ["today_events", "venue_utilization", "vip_bookings"],
+                    "metrics": [
+                        "today_events",
+                        "venue_utilization",
+                        "vip_bookings",
+                    ],
                 },
                 {
                     "type": "client_satisfaction",
                     "title": "Guest Experience",
                     "position": {"row": 2, "col": 1, "span": 1},
-                    "metrics": ["satisfaction_score", "repeat_clients", "referrals"],
+                    "metrics": [
+                        "satisfaction_score",
+                        "repeat_clients",
+                        "referrals",
+                    ],
                 },
                 {
                     "type": "venue_status",
@@ -403,7 +415,8 @@ class HotelModule(BaseModule):
                         "type": "luxury_hero",
                         "config": {
                             "title": "Executive Meeting Venues",
-                            "subtitle": "Where business meets luxury in sophisticated surroundings",
+                            "subtitle": "Where business meets luxury in "
+                            "sophisticated surroundings",
                             "cta_text": "Schedule Private Tour",
                             "cta_action": "schedule_tour",
                             "background_video": "/videos/luxury-venue.mp4",
@@ -468,11 +481,31 @@ class HotelModule(BaseModule):
             "event_inquiry": {
                 "name": "Executive Event Inquiry",
                 "fields": [
-                    {"label": "Company Name", "type": "text", "required": True},
-                    {"label": "Contact Name", "type": "text", "required": True},
-                    {"label": "Title/Position", "type": "text", "required": False},
-                    {"label": "Email Address", "type": "email", "required": True},
-                    {"label": "Phone Number", "type": "phone", "required": True},
+                    {
+                        "label": "Company Name",
+                        "type": "text",
+                        "required": True,
+                    },
+                    {
+                        "label": "Contact Name",
+                        "type": "text",
+                        "required": True,
+                    },
+                    {
+                        "label": "Title/Position",
+                        "type": "text",
+                        "required": False,
+                    },
+                    {
+                        "label": "Email Address",
+                        "type": "email",
+                        "required": True,
+                    },
+                    {
+                        "label": "Phone Number",
+                        "type": "phone",
+                        "required": True,
+                    },
                     {
                         "label": "Event Type",
                         "type": "select",
@@ -559,7 +592,11 @@ class HotelModule(BaseModule):
                     {"label": "Company", "type": "text", "required": True},
                     {"label": "Email", "type": "email", "required": True},
                     {"label": "Phone", "type": "phone", "required": True},
-                    {"label": "Preferred Date", "type": "date", "required": True},
+                    {
+                        "label": "Preferred Date",
+                        "type": "date",
+                        "required": True,
+                    },
                     {
                         "label": "Preferred Time",
                         "type": "select",
@@ -590,7 +627,13 @@ class HotelModule(BaseModule):
                         "label": "Number of People",
                         "type": "select",
                         "required": False,
-                        "options": ["1-10", "11-25", "26-50", "51-100", "100+"],
+                        "options": [
+                            "1-10",
+                            "11-25",
+                            "26-50",
+                            "51-100",
+                            "100+",
+                        ],
                     },
                     {
                         "label": "Special Interests",
@@ -602,8 +645,16 @@ class HotelModule(BaseModule):
             "corporate_contract": {
                 "name": "Corporate Partnership Inquiry",
                 "fields": [
-                    {"label": "Company Name", "type": "text", "required": True},
-                    {"label": "Primary Contact", "type": "text", "required": True},
+                    {
+                        "label": "Company Name",
+                        "type": "text",
+                        "required": True,
+                    },
+                    {
+                        "label": "Primary Contact",
+                        "type": "text",
+                        "required": True,
+                    },
                     {"label": "Title", "type": "text", "required": True},
                     {"label": "Email", "type": "email", "required": True},
                     {"label": "Phone", "type": "phone", "required": True},
@@ -670,7 +721,7 @@ class HotelModule(BaseModule):
             {
                 "type": "executive_boardroom",
                 "display_name": "Executive Boardroom",
-                "description": "Intimate luxury setting for high-level meetings",
+                "description": ("Intimate luxury setting for high-level meetings"),
                 "pricing_type": "premium",
                 "bookable": True,
                 "requires_approval": False,
@@ -688,7 +739,9 @@ class HotelModule(BaseModule):
             {
                 "type": "conference_center",
                 "display_name": "Conference Center",
-                "description": "State-of-the-art facility for conferences and training",
+                "description": (
+                    "State-of-the-art facility for conferences and training"
+                ),
                 "pricing_type": "standard",
                 "bookable": True,
                 "requires_approval": False,
@@ -697,7 +750,9 @@ class HotelModule(BaseModule):
             {
                 "type": "private_dining",
                 "display_name": "Private Dining Room",
-                "description": "Exclusive dining experience for business entertaining",
+                "description": (
+                    "Exclusive dining experience for business entertaining"
+                ),
                 "pricing_type": "premium",
                 "bookable": True,
                 "requires_approval": False,
@@ -715,7 +770,7 @@ class HotelModule(BaseModule):
             {
                 "type": "breakout_rooms",
                 "display_name": "Breakout Rooms",
-                "description": "Smaller spaces for workshops and team meetings",
+                "description": ("Smaller spaces for workshops and team meetings"),
                 "pricing_type": "standard",
                 "bookable": True,
                 "requires_approval": False,

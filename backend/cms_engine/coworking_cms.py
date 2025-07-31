@@ -3,7 +3,6 @@ Enhanced CMS System for Coworking Module
 Provides industry-specific content blocks and page building capabilities
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from kernels.base_kernel import BaseKernel
@@ -37,7 +36,9 @@ class CoworkingCMSEngine(BaseKernel):
                 "id": "coworking_hero",
                 "name": "Community Hero Section",
                 "category": "headers",
-                "description": "Welcoming hero section highlighting community and collaboration",
+                "description": (
+                    "Welcoming hero section highlighting community and " "collaboration"
+                ),
                 "customizable_fields": [
                     {
                         "field": "title",
@@ -49,7 +50,11 @@ class CoworkingCMSEngine(BaseKernel):
                         "type": "text",
                         "default": "Join our vibrant coworking community",
                     },
-                    {"field": "cta_text", "type": "text", "default": "Tour Our Space"},
+                    {
+                        "field": "cta_text",
+                        "type": "text",
+                        "default": "Tour Our Space",
+                    },
                     {
                         "field": "background_image",
                         "type": "image",
@@ -68,7 +73,9 @@ class CoworkingCMSEngine(BaseKernel):
                 "id": "membership_pricing",
                 "name": "Membership Plans",
                 "category": "pricing",
-                "description": "Professional pricing tables for different membership tiers",
+                "description": (
+                    "Professional pricing tables for different membership " "tiers"
+                ),
                 "customizable_fields": [
                     {
                         "field": "title",
@@ -78,18 +85,30 @@ class CoworkingCMSEngine(BaseKernel):
                     {
                         "field": "subtitle",
                         "type": "text",
-                        "default": "Flexible plans for every type of professional",
+                        "default": ("Flexible plans for every type of professional"),
                     },
                     {
                         "field": "plans",
                         "type": "repeater",
                         "fields": [
-                            {"field": "name", "type": "text", "default": "Hot Desk"},
-                            {"field": "price", "type": "number", "default": 25},
+                            {
+                                "field": "name",
+                                "type": "text",
+                                "default": "Hot Desk",
+                            },
+                            {
+                                "field": "price",
+                                "type": "number",
+                                "default": 25,
+                            },
                             {
                                 "field": "billing",
                                 "type": "select",
-                                "options": ["per day", "per month", "per year"],
+                                "options": [
+                                    "per day",
+                                    "per month",
+                                    "per year",
+                                ],
                             },
                             {
                                 "field": "features",
@@ -119,7 +138,7 @@ class CoworkingCMSEngine(BaseKernel):
                 "id": "member_testimonials",
                 "name": "Member Success Stories",
                 "category": "social_proof",
-                "description": "Showcase member testimonials and success stories",
+                "description": ("Showcase member testimonials and success stories"),
                 "customizable_fields": [
                     {
                         "field": "title",
@@ -130,9 +149,21 @@ class CoworkingCMSEngine(BaseKernel):
                         "field": "testimonials",
                         "type": "repeater",
                         "fields": [
-                            {"field": "quote", "type": "textarea", "required": True},
-                            {"field": "author_name", "type": "text", "required": True},
-                            {"field": "author_title", "type": "text", "required": True},
+                            {
+                                "field": "quote",
+                                "type": "textarea",
+                                "required": True,
+                            },
+                            {
+                                "field": "author_name",
+                                "type": "text",
+                                "required": True,
+                            },
+                            {
+                                "field": "author_title",
+                                "type": "text",
+                                "required": True,
+                            },
                             {
                                 "field": "author_company",
                                 "type": "text",
@@ -164,23 +195,47 @@ class CoworkingCMSEngine(BaseKernel):
                 "id": "space_gallery",
                 "name": "Space Showcase",
                 "category": "galleries",
-                "description": "Beautiful gallery of coworking spaces and amenities",
+                "description": ("Beautiful gallery of coworking spaces and amenities"),
                 "customizable_fields": [
-                    {"field": "title", "type": "text", "default": "Explore Our Spaces"},
+                    {
+                        "field": "title",
+                        "type": "text",
+                        "default": "Explore Our Spaces",
+                    },
                     {
                         "field": "spaces",
                         "type": "repeater",
                         "fields": [
-                            {"field": "name", "type": "text", "required": True},
+                            {
+                                "field": "name",
+                                "type": "text",
+                                "required": True,
+                            },
                             {
                                 "field": "description",
                                 "type": "textarea",
                                 "required": True,
                             },
-                            {"field": "image", "type": "image", "required": True},
-                            {"field": "capacity", "type": "number", "optional": True},
-                            {"field": "amenities", "type": "list", "optional": True},
-                            {"field": "booking_link", "type": "url", "optional": True},
+                            {
+                                "field": "image",
+                                "type": "image",
+                                "required": True,
+                            },
+                            {
+                                "field": "capacity",
+                                "type": "number",
+                                "optional": True,
+                            },
+                            {
+                                "field": "amenities",
+                                "type": "list",
+                                "optional": True,
+                            },
+                            {
+                                "field": "booking_link",
+                                "type": "url",
+                                "optional": True,
+                            },
                         ],
                     },
                 ],
@@ -196,16 +251,24 @@ class CoworkingCMSEngine(BaseKernel):
                 "id": "community_events",
                 "name": "Community Events",
                 "category": "content",
-                "description": "Display upcoming community events and workshops",
+                "description": ("Display upcoming community events and workshops"),
                 "customizable_fields": [
-                    {"field": "title", "type": "text", "default": "Upcoming Events"},
+                    {
+                        "field": "title",
+                        "type": "text",
+                        "default": "Upcoming Events",
+                    },
                     {
                         "field": "view_type",
                         "type": "select",
                         "options": ["calendar", "list", "featured"],
                         "default": "list",
                     },
-                    {"field": "show_past_events", "type": "boolean", "default": False},
+                    {
+                        "field": "show_past_events",
+                        "type": "boolean",
+                        "default": False,
+                    },
                     {
                         "field": "events_count",
                         "type": "number",
@@ -224,20 +287,32 @@ class CoworkingCMSEngine(BaseKernel):
                 "id": "amenities_grid",
                 "name": "Amenities & Perks",
                 "category": "features",
-                "description": "Highlight coworking space amenities and member perks",
+                "description": ("Highlight coworking space amenities and member perks"),
                 "customizable_fields": [
-                    {"field": "title", "type": "text", "default": "Member Amenities"},
+                    {
+                        "field": "title",
+                        "type": "text",
+                        "default": "Member Amenities",
+                    },
                     {
                         "field": "amenities",
                         "type": "repeater",
                         "fields": [
-                            {"field": "name", "type": "text", "required": True},
+                            {
+                                "field": "name",
+                                "type": "text",
+                                "required": True,
+                            },
                             {
                                 "field": "description",
                                 "type": "textarea",
                                 "required": True,
                             },
-                            {"field": "icon", "type": "icon_picker", "required": True},
+                            {
+                                "field": "icon",
+                                "type": "icon_picker",
+                                "required": True,
+                            },
                             {
                                 "field": "is_premium",
                                 "type": "boolean",
@@ -268,9 +343,21 @@ class CoworkingCMSEngine(BaseKernel):
                         "field": "stats",
                         "type": "repeater",
                         "fields": [
-                            {"field": "number", "type": "text", "required": True},
-                            {"field": "label", "type": "text", "required": True},
-                            {"field": "icon", "type": "icon_picker", "optional": True},
+                            {
+                                "field": "number",
+                                "type": "text",
+                                "required": True,
+                            },
+                            {
+                                "field": "label",
+                                "type": "text",
+                                "required": True,
+                            },
+                            {
+                                "field": "icon",
+                                "type": "icon_picker",
+                                "optional": True,
+                            },
                         ],
                     },
                 ],
@@ -285,7 +372,7 @@ class CoworkingCMSEngine(BaseKernel):
                 "id": "cta_membership",
                 "name": "Membership Call-to-Action",
                 "category": "conversion",
-                "description": "Compelling CTA section to drive membership signups",
+                "description": ("Compelling CTA section to drive membership signups"),
                 "customizable_fields": [
                     {
                         "field": "title",
@@ -297,13 +384,21 @@ class CoworkingCMSEngine(BaseKernel):
                         "type": "text",
                         "default": "Start your journey with a free day pass",
                     },
-                    {"field": "primary_cta", "type": "text", "default": "Get Day Pass"},
+                    {
+                        "field": "primary_cta",
+                        "type": "text",
+                        "default": "Get Day Pass",
+                    },
                     {
                         "field": "secondary_cta",
                         "type": "text",
                         "default": "Schedule Tour",
                     },
-                    {"field": "background_image", "type": "image", "optional": True},
+                    {
+                        "field": "background_image",
+                        "type": "image",
+                        "optional": True,
+                    },
                 ],
                 "layout_options": ["centered", "split", "full_width"],
                 "styling_options": {
@@ -321,7 +416,9 @@ class CoworkingCMSEngine(BaseKernel):
             {
                 "id": "modern_collaborative",
                 "name": "Modern Collaborative",
-                "description": "Clean, modern design emphasizing teamwork and innovation",
+                "description": (
+                    "Clean, modern design emphasizing teamwork and innovation"
+                ),
                 "preview_image": "/images/themes/modern-collaborative.jpg",
                 "color_schemes": [
                     {
@@ -364,7 +461,9 @@ class CoworkingCMSEngine(BaseKernel):
             {
                 "id": "creative_studio",
                 "name": "Creative Studio",
-                "description": "Artistic and inspiring design for creative professionals",
+                "description": (
+                    "Artistic and inspiring design for creative professionals"
+                ),
                 "preview_image": "/images/themes/creative-studio.jpg",
                 "color_schemes": [
                     {
@@ -399,7 +498,7 @@ class CoworkingCMSEngine(BaseKernel):
             {
                 "id": "professional_corporate",
                 "name": "Professional Corporate",
-                "description": "Sophisticated design for business-focused coworking",
+                "description": ("Sophisticated design for business-focused coworking"),
                 "preview_image": "/images/themes/professional-corporate.jpg",
                 "color_schemes": [
                     {
@@ -440,7 +539,9 @@ class CoworkingCMSEngine(BaseKernel):
             {
                 "id": "coworking_homepage",
                 "name": "Coworking Homepage",
-                "description": "Complete homepage showcasing community and memberships",
+                "description": (
+                    "Complete homepage showcasing community and memberships"
+                ),
                 "blocks": [
                     {"type": "coworking_hero", "order": 1},
                     {"type": "community_stats", "order": 2},
@@ -525,10 +626,9 @@ class CoworkingCMSEngine(BaseKernel):
             )
 
         # Apply theme styling
-        theme_overrides = {}
         if theme_config and "color_scheme" in theme_config:
-            colors = theme_config["color_scheme"]
-            theme_overrides["colors"] = colors
+            # colors = theme_config["color_scheme"]  # Unused variable
+            pass
 
         # For dynamic blocks, fetch real data
         if block_type == "community_events":
@@ -555,6 +655,7 @@ class CoworkingCMSEngine(BaseKernel):
                     "spaces": 0,  # Placeholder until Resource model is defined
                 }
 
+        theme_overrides = {}
         return {
             "block_type": block_type,
             "config": rendered_config,
@@ -575,11 +676,14 @@ class CoworkingCMSEngine(BaseKernel):
 
         if block_type == "coworking_hero":
             return f"""
-            <section class="hero-section" style="background-color: {primary_color}">
+            <section class="hero-section"
+                style="background-color: {primary_color}">
                 <div class="hero-content">
                     <h1>{config.get('title', 'Welcome')}</h1>
                     <p>{config.get('subtitle', 'Join our community')}</p>
-                    <button class="cta-button">{config.get('cta_text', 'Get Started')}</button>
+                    <button class="cta-button">
+                        {config.get('cta_text', 'Get Started')}
+                    </button>
                 </div>
             </section>
             """
@@ -593,7 +697,10 @@ class CoworkingCMSEngine(BaseKernel):
                     <div class="price">${plan['price']}</div>
                     <div class="billing">{plan['billing']}</div>
                     <ul class="features">
-                        {''.join(f'<li>{feature}</li>' for feature in plan.get('features', []))}
+                        {''.join(
+                            f'<li>{feature}</li>'
+                            for feature in plan.get('features', [])
+                        )}
                     </ul>
                 </div>
                 """
@@ -609,20 +716,13 @@ class CoworkingCMSEngine(BaseKernel):
             """
 
         # Add more block types as needed
-        return f'<div class="content-block {block_type}">Block: {block_type}</div>'
+        return f'<div class="content-block {block_type}">' f"Block: {block_type}</div>"
 
     # Page Builder Integration
     async def save_page_builder_data(
         self, tenant_id: str, page_id: str, blocks_data: List[Dict[str, Any]]
     ) -> bool:
         """Save page builder configuration"""
-        page_builder_doc = {
-            "tenant_id": tenant_id,
-            "page_id": page_id,
-            "blocks": blocks_data,
-            "updated_at": datetime.utcnow(),
-        }
-
         # For now, this is a placeholder implementation
         pass
 

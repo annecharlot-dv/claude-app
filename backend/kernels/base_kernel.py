@@ -3,7 +3,7 @@ Base Kernel - Abstract base class for all kernels
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

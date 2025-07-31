@@ -6,10 +6,14 @@ Handles connection pooling, tenant context, and RLS
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
-from sqlalchemy import event, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import NullPool
 
 logger = logging.getLogger(__name__)
@@ -66,7 +70,7 @@ class PostgreSQLConnectionManager:
         """Set tenant context for Row-Level Security"""
         try:
             await session.execute(
-                text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                text("SELECT set_config('app.current_tenant_id', " ":tenant_id, true)"),
                 {"tenant_id": tenant_id},
             )
             logger.debug(f"Set tenant context: {tenant_id}")
@@ -89,7 +93,11 @@ class PostgreSQLConnectionManager:
                 }
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
-            return {"status": "unhealthy", "database": "postgresql", "error": str(e)}
+            return {
+                "status": "unhealthy",
+                "database": "postgresql",
+                "error": str(e),
+            }
 
     async def close(self):
         """Close the database engine"""

@@ -180,7 +180,7 @@ class GovernmentModule(BaseModule):
             },
             "front_desk": {
                 "display_name": "Public Services Clerk",
-                "description": "Assists citizens with reservations and inquiries",
+                "description": ("Assists citizens with reservations and inquiries"),
                 "permissions": [
                     "residents.view",
                     "reservations.view",
@@ -392,7 +392,10 @@ class GovernmentModule(BaseModule):
                         "type": "hero_banner",
                         "config": {
                             "title": "Public Facility Reservations",
-                            "subtitle": "Reserve community spaces for meetings, events, and public gatherings",
+                            "subtitle": (
+                                "Reserve community spaces for meetings, "
+                                "events, and public gatherings"
+                            ),
                             "cta_text": "View Available Facilities",
                             "cta_action": "view_facilities",
                         },
@@ -436,7 +439,10 @@ class GovernmentModule(BaseModule):
                     },
                     {
                         "type": "reservation_calendar",
-                        "config": {"public_view": True, "show_availability": True},
+                        "config": {
+                            "public_view": True,
+                            "show_availability": True,
+                        },
                     },
                 ],
             },
@@ -448,10 +454,26 @@ class GovernmentModule(BaseModule):
             "facility_request": {
                 "name": "Facility Reservation Request",
                 "fields": [
-                    {"label": "Organization Name", "type": "text", "required": True},
-                    {"label": "Contact Person", "type": "text", "required": True},
-                    {"label": "Email Address", "type": "email", "required": True},
-                    {"label": "Phone Number", "type": "phone", "required": True},
+                    {
+                        "label": "Organization Name",
+                        "type": "text",
+                        "required": True,
+                    },
+                    {
+                        "label": "Contact Person",
+                        "type": "text",
+                        "required": True,
+                    },
+                    {
+                        "label": "Email Address",
+                        "type": "email",
+                        "required": True,
+                    },
+                    {
+                        "label": "Phone Number",
+                        "type": "phone",
+                        "required": True,
+                    },
                     {
                         "label": "Event Type",
                         "type": "select",
@@ -490,7 +512,11 @@ class GovernmentModule(BaseModule):
                         "type": "textarea",
                         "required": False,
                     },
-                    {"label": "Insurance Provider", "type": "text", "required": False},
+                    {
+                        "label": "Insurance Provider",
+                        "type": "text",
+                        "required": False,
+                    },
                     {
                         "label": "Event Description",
                         "type": "textarea",
@@ -529,7 +555,11 @@ class GovernmentModule(BaseModule):
             "maintenance_request": {
                 "name": "Facility Maintenance Request",
                 "fields": [
-                    {"label": "Reporter Name", "type": "text", "required": True},
+                    {
+                        "label": "Reporter Name",
+                        "type": "text",
+                        "required": True,
+                    },
                     {"label": "Email", "type": "email", "required": True},
                     {
                         "label": "Facility/Location",
@@ -564,8 +594,16 @@ class GovernmentModule(BaseModule):
                         "required": True,
                         "options": ["Low", "Medium", "High", "Emergency"],
                     },
-                    {"label": "Description", "type": "textarea", "required": True},
-                    {"label": "Safety Concern", "type": "checkbox", "required": False},
+                    {
+                        "label": "Description",
+                        "type": "textarea",
+                        "required": True,
+                    },
+                    {
+                        "label": "Safety Concern",
+                        "type": "checkbox",
+                        "required": False,
+                    },
                 ],
             },
         }
@@ -638,11 +676,18 @@ class GovernmentModule(BaseModule):
                 "minimum_coverage": 1000000,
                 "additional_insured_required": True,
             },
-            "cancellation_policy": {"free_cancellation_hours": 48, "penalty_fee": 0},
+            "cancellation_policy": {
+                "free_cancellation_hours": 48,
+                "penalty_fee": 0,
+            },
             "public_notice_requirements": {
                 "government_meetings": True,
                 "notice_days": 3,
-                "posting_locations": ["website", "bulletin_board", "local_paper"],
+                "posting_locations": [
+                    "website",
+                    "bulletin_board",
+                    "local_paper",
+                ],
             },
         }
 

@@ -3,19 +3,17 @@
 Test PostgreSQL setup and basic operations
 """
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-import logging
-
 from database.postgresql_connection import get_connection_manager
 from kernels.postgresql_identity_kernel import PostgreSQLIdentityKernel
-from models.postgresql_models import Tenant, User
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -3,7 +3,6 @@
 Seed demo data for Claude Platform - Complete Space-as-a-Service platform
 """
 import asyncio
-import os
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -37,7 +36,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 async def seed_claude_platform():
-    print("🏢 Seeding Claude Platform - Space-as-a-Service Demo Data...")
+    print("🏢 Seeding Claude Platform - Space-as-a-Service " "Demo Data...")
 
     async with connection_manager.get_session() as session:
         # Clear existing data
@@ -66,7 +65,7 @@ async def seed_claude_platform():
             },
             "default_content": {
                 "hero_title": "Where Innovation Meets Collaboration",
-                "hero_subtitle": "Join our vibrant coworking community",
+                "hero_subtitle": "Join our vibrant coworking " "community",
             },
             "is_active": True,
         },
@@ -74,7 +73,7 @@ async def seed_claude_platform():
             "id": str(uuid.uuid4()),
             "name": "Government Clean",
             "industry_module": "government",
-            "preview_image": "/images/templates/government-clean.jpg",
+            "preview_image": "/images/templates/" "government-clean.jpg",
             "layout_config": {
                 "primary_color": "#059669",
                 "secondary_color": "#047857",
@@ -82,7 +81,7 @@ async def seed_claude_platform():
             },
             "default_content": {
                 "hero_title": "Public Facility Reservations",
-                "hero_subtitle": "Book community spaces for your events",
+                "hero_subtitle": "Book community spaces for your " "events",
             },
             "is_active": True,
         },
@@ -114,7 +113,8 @@ async def seed_claude_platform():
             },
             "default_content": {
                 "hero_title": "Campus Resource Center",
-                "hero_subtitle": "Book study spaces and facilities for academic success",
+                "hero_subtitle": "Book study spaces and facilities for "
+                "academic success",
             },
             "is_active": True,
         },
@@ -373,7 +373,9 @@ async def seed_claude_platform():
             session.add(user_password)
             await session.commit()
 
-        print(f"✅ Created tenant: {tenant['name']} with {len(staff_users) + 1} users")
+        print(
+            f"✅ Created tenant: {tenant['name']} with " f"{len(staff_users) + 1} users"
+        )
 
     # Create pages for each tenant
     for tenant in created_tenants:
@@ -393,7 +395,8 @@ async def seed_claude_platform():
                     "type": "hero_banner",
                     "config": {
                         "title": "Welcome to Downtown Coworking Hub",
-                        "subtitle": "Where innovation meets collaboration in the heart of the city",
+                        "subtitle": "Where innovation meets collaboration "
+                        "in the heart of the city",
                         "background_image": "/images/coworking-hero.jpg",
                         "cta_text": "Join Our Community",
                         "cta_link": "/membership",
@@ -404,7 +407,7 @@ async def seed_claude_platform():
                     "type": "pricing_cards",
                     "config": {
                         "title": "Membership Plans",
-                        "subtitle": "Choose the perfect plan for your work style",
+                        "subtitle": ("Choose the perfect plan for your work style"),
                         "plans": [
                             {
                                 "name": "Hot Desk",
@@ -444,7 +447,8 @@ async def seed_claude_platform():
                     "type": "lead_form",
                     "config": {
                         "title": "Get Started Today",
-                        "subtitle": "Join hundreds of entrepreneurs, freelancers, and teams",
+                        "subtitle": "Join hundreds of entrepreneurs, "
+                        "freelancers, and teams",
                         "form_id": None,  # Will be linked to actual form
                     },
                 },
@@ -456,7 +460,8 @@ async def seed_claude_platform():
                     "type": "hero_banner",
                     "config": {
                         "title": "City Hall Public Facilities",
-                        "subtitle": "Reserve community spaces for meetings, events, and public gatherings",
+                        "subtitle": "Reserve community spaces for meetings, "
+                        "events, and public gatherings",
                         "background_image": "/images/government-hero.jpg",
                         "cta_text": "View Available Spaces",
                         "cta_link": "/spaces",
@@ -466,7 +471,11 @@ async def seed_claude_platform():
                     "id": str(uuid.uuid4()),
                     "type": "text_block",
                     "config": {
-                        "content": "<h2>Community Meeting Spaces</h2><p>Our public facilities are available to community organizations, non-profits, and residents for meetings and events. All bookings are subject to approval and must comply with city guidelines.</p>"
+                        "content": "<h2>Community Meeting Spaces</h2>"
+                        "<p>Our public facilities are available to community "
+                        "organizations, non-profits, and residents for "
+                        "meetings and events. All bookings are subject to "
+                        "approval and must comply with city guidelines.</p>"
                     },
                 },
                 {
@@ -474,7 +483,8 @@ async def seed_claude_platform():
                     "type": "lead_form",
                     "config": {
                         "title": "Request Space Reservation",
-                        "subtitle": "Submit your request and we'll process it within 48 hours",
+                        "subtitle": "Submit your request and we'll process "
+                        "it within 48 hours",
                     },
                 },
             ]
@@ -485,7 +495,8 @@ async def seed_claude_platform():
                     "type": "hero_banner",
                     "config": {
                         "title": "Grand Hotel Executive Spaces",
-                        "subtitle": "Premium meeting rooms and event venues for discerning professionals",
+                        "subtitle": "Premium meeting rooms and event venues "
+                        "for discerning professionals",
                         "background_image": "/images/hotel-hero.jpg",
                         "cta_text": "Book Your Event",
                         "cta_link": "/booking",
@@ -495,7 +506,11 @@ async def seed_claude_platform():
                     "id": str(uuid.uuid4()),
                     "type": "text_block",
                     "config": {
-                        "content": "<h2>Professional Meeting Venues</h2><p>Experience luxury and sophistication in our state-of-the-art meeting rooms and event spaces. Perfect for corporate meetings, training sessions, and special events.</p>"
+                        "content": "<h2>Professional Meeting Venues</h2>"
+                        "<p>Experience luxury and sophistication in our "
+                        "state-of-the-art meeting rooms and event spaces. "
+                        "Perfect for corporate meetings, training sessions, "
+                        "and special events.</p>"
                     },
                 },
             ]
@@ -528,7 +543,9 @@ async def seed_claude_platform():
                         "id": str(uuid.uuid4()),
                         "type": "text_block",
                         "config": {
-                            "content": f"<h1>About {tenant['name']}</h1><p>We are dedicated to providing exceptional space solutions for our community.</p>"
+                            "content": f"<h1>About {tenant['name']}</h1>"
+                            f"<p>We are dedicated to providing exceptional "
+                            f"space solutions for our community.</p>"
                         },
                     }
                 ],
@@ -557,7 +574,8 @@ async def seed_claude_platform():
                 "slug": page_data["slug"],
                 "content_blocks": page_data["content_blocks"],
                 "meta_title": f"{page_data['title']} - {tenant['name']}",
-                "meta_description": f"{page_data['title']} page for {tenant['name']}",
+                "meta_description": f"{page_data['title']} page for "
+                f"{tenant['name']}",
                 "status": "published",
                 "template_id": template["id"] if template else None,
                 "is_homepage": False,
@@ -568,7 +586,7 @@ async def seed_claude_platform():
             session.add(page_obj)
             await session.commit()
 
-        print(f"✅ Created {len(additional_pages) + 1} pages for {tenant['name']}")
+        print(f"✅ Created {len(additional_pages) + 1} pages for " f"{tenant['name']}")
 
     # Create forms for each tenant
     for tenant in created_tenants:
@@ -577,7 +595,10 @@ async def seed_claude_platform():
                 {
                     "name": "membership_inquiry",
                     "title": "Membership Inquiry",
-                    "description": "Interested in joining our coworking community? Tell us about your needs.",
+                    "description": (
+                        "Interested in joining our coworking community? "
+                        "Tell us about your needs."
+                    ),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
@@ -644,16 +665,21 @@ async def seed_claude_platform():
                             "label": "Additional Notes",
                             "type": "textarea",
                             "is_required": False,
-                            "placeholder": "Tell us about your needs and preferences...",
+                            "placeholder": (
+                                "Tell us about your needs and preferences..."
+                            ),
                         },
                     ],
-                    "success_message": "Thank you for your interest! We'll be in touch within 24 hours to schedule a tour.",
+                    "success_message": (
+                        "Thank you for your interest! We'll be in touch "
+                        "within 24 hours to schedule a tour."
+                    ),
                     "email_notifications": ["admin@downtownhub.com"],
                 },
                 {
                     "name": "tour_request",
                     "title": "Schedule a Tour",
-                    "description": "See our space in person and meet our community.",
+                    "description": ("See our space in person and meet our community."),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
@@ -688,7 +714,9 @@ async def seed_claude_platform():
                             ],
                         },
                     ],
-                    "success_message": "Tour requested! We'll confirm your appointment shortly.",
+                    "success_message": (
+                        "Tour requested! We'll confirm your appointment " "shortly."
+                    ),
                 },
             ]
         elif tenant["industry_module"] == "government":
@@ -696,7 +724,9 @@ async def seed_claude_platform():
                 {
                     "name": "facility_request",
                     "title": "Facility Reservation Request",
-                    "description": "Request to reserve public meeting spaces and facilities.",
+                    "description": (
+                        "Request to reserve public meeting spaces and " "facilities."
+                    ),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
@@ -752,10 +782,15 @@ async def seed_claude_platform():
                             "label": "Event Description",
                             "type": "textarea",
                             "is_required": True,
-                            "placeholder": "Please provide details about your event...",
+                            "placeholder": (
+                                "Please provide details about your event..."
+                            ),
                         },
                     ],
-                    "success_message": "Your reservation request has been submitted. We will review and respond within 48 hours.",
+                    "success_message": (
+                        "Your reservation request has been submitted. "
+                        "We will review and respond within 48 hours."
+                    ),
                 }
             ]
         else:  # hotel
@@ -763,7 +798,10 @@ async def seed_claude_platform():
                 {
                     "name": "event_inquiry",
                     "title": "Event Space Inquiry",
-                    "description": "Planning a corporate event or meeting? Let us help you create the perfect experience.",
+                    "description": (
+                        "Planning a corporate event or meeting? "
+                        "Let us help you create the perfect experience."
+                    ),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
@@ -832,10 +870,17 @@ async def seed_claude_platform():
                             "label": "Special Requirements",
                             "type": "textarea",
                             "is_required": False,
-                            "placeholder": "Any special setup, equipment, or service requirements...",
+                            "placeholder": (
+                                "Any special setup, equipment, or service "
+                                "requirements..."
+                            ),
                         },
                     ],
-                    "success_message": "Thank you for your inquiry! Our events team will contact you within 4 hours to discuss your requirements.",
+                    "success_message": (
+                        "Thank you for your inquiry! Our events team will "
+                        "contact you within 4 hours to discuss your "
+                        "requirements."
+                    ),
                 }
             ]
 
@@ -999,12 +1044,18 @@ async def seed_claude_platform():
                 "tenant_id": tenant["id"],
                 "first_name": first_names[i % len(first_names)],
                 "last_name": last_names[i % len(last_names)],
-                "email": f"{first_names[i % len(first_names)].lower()}.{last_names[i % len(last_names)].lower()}@email.com",
+                "email": (
+                    f"{first_names[i % len(first_names)].lower()}."
+                    f"{last_names[i % len(last_names)].lower()}@email.com"
+                ),
                 "phone": f"+1-555-{(i*123) % 1000:03d}-{(i*456) % 10000:04d}",
                 "company": companies[i % len(companies)],
                 "status": status,
                 "source": sources[i % len(sources)],
-                "notes": f"Interested in our services. Initial contact made {days_ago} days ago.",
+                "notes": (
+                    f"Interested in our services. Initial contact made "
+                    f"{days_ago} days ago."
+                ),
                 "custom_fields": {},
                 "assigned_to": None,
                 "tour_scheduled_at": (
@@ -1036,15 +1087,19 @@ async def seed_claude_platform():
 
     for tenant in created_tenants:
         print(f"\n🏢 {tenant['name']} ({tenant['industry_module'].upper()})")
-        print(f"   URL: https://your-domain.com (subdomain: {tenant['subdomain']})")
-        print(f"   Login: admin user credentials above")
+        print(f"   URL: https://your-domain.com " f"(subdomain: {tenant['subdomain']})")
+        print("   Login: admin user credentials above")
         print(
-            f"   Features: {', '.join([k for k, v in tenant['feature_toggles'].items() if v])}"
+            f"   Features: "
+            f"{', '.join([k for k, v in tenant['feature_toggles'].items()
+                          if v])}"
         )
 
-        print(f"\n📊 PLATFORM STATISTICS:")
+        print("\n📊 PLATFORM STATISTICS:")
         print(
-            f"   • {len(created_tenants)} tenants across {len(set(t['industry_module'] for t in created_tenants))} industries"
+            f"   • {len(created_tenants)} tenants across "
+            f"{len(set(t['industry_module'] for t in created_tenants))} "
+            f"industries"
         )
 
         from sqlalchemy import func
@@ -1058,13 +1113,13 @@ async def seed_claude_platform():
         print(f"   • {page_count.scalar()} website pages")
         print(f"   • {form_count.scalar()} lead capture forms")
         print(f"   • {lead_count.scalar()} leads generated")
-    print(f"   • {len(templates)} industry-specific templates")
+        print(f"   • {len(templates)} industry-specific templates")
 
-    print(f"\n🔑 LOGIN CREDENTIALS:")
-    print(f"   All admin accounts: password123")
-    print(f"   Staff accounts: password123")
+    print("\n🔑 LOGIN CREDENTIALS:")
+    print("   All admin accounts: password123")
+    print("   Staff accounts: password123")
 
-    print(f"\n🚀 Your multi-tenant Space-as-a-Service platform is ready!")
+    print("\n🚀 Your multi-tenant Space-as-a-Service platform is ready!")
 
 
 async def main():

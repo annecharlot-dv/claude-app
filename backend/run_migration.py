@@ -4,17 +4,16 @@ Run PostgreSQL database migration
 """
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
 from sqlalchemy import text
 
-# Add backend to path
-sys.path.append(str(Path(__file__).parent))
-
 from database.postgresql_connection import get_connection_manager
 from models.postgresql_models import Base
+
+# Add backend to path
+sys.path.append(str(Path(__file__).parent))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,12 +57,14 @@ async def run_migration():
                 )
                 await session.execute(
                     text(
-                        "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO application_role"
+                        "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES "
+                        "IN SCHEMA public TO application_role"
                     )
                 )
                 await session.execute(
                     text(
-                        "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO application_role"
+                        "GRANT USAGE, SELECT ON ALL SEQUENCES "
+                        "IN SCHEMA public TO application_role"
                     )
                 )
                 logger.info("✅ Application role created")
@@ -78,37 +79,44 @@ async def run_migration():
                 """
                 CREATE POLICY tenant_isolation_users ON users
                     FOR ALL TO application_role
-                    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+                    USING (tenant_id = current_setting(
+                        'app.current_tenant_id')::uuid)
                 """,
                 """
                 CREATE POLICY tenant_isolation_pages ON pages
                     FOR ALL TO application_role
-                    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+                    USING (tenant_id = current_setting(
+                        'app.current_tenant_id')::uuid)
                 """,
                 """
                 CREATE POLICY tenant_isolation_leads ON leads
                     FOR ALL TO application_role
-                    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+                    USING (tenant_id = current_setting(
+                        'app.current_tenant_id')::uuid)
                 """,
                 """
                 CREATE POLICY tenant_isolation_forms ON forms
                     FOR ALL TO application_role
-                    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+                    USING (tenant_id = current_setting(
+                        'app.current_tenant_id')::uuid)
                 """,
                 """
                 CREATE POLICY tenant_isolation_widgets ON widgets
                     FOR ALL TO application_role
-                    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+                    USING (tenant_id = current_setting(
+                        'app.current_tenant_id')::uuid)
                 """,
                 """
                 CREATE POLICY tenant_isolation_tour_slots ON tour_slots
                     FOR ALL TO application_role
-                    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+                    USING (tenant_id = current_setting(
+                        'app.current_tenant_id')::uuid)
                 """,
                 """
                 CREATE POLICY tenant_isolation_tours ON tours
                     FOR ALL TO application_role
-                    USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+                    USING (tenant_id = current_setting(
+                        'app.current_tenant_id')::uuid)
                 """,
             ]
 
@@ -128,8 +136,8 @@ async def run_migration():
                 CREATE OR REPLACE FUNCTION update_page_search_vector()
                 RETURNS TRIGGER AS $$
                 BEGIN
-                    NEW.search_vector := to_tsvector('english', 
-                        COALESCE(NEW.title, '') || ' ' || 
+                    NEW.search_vector := to_tsvector('english',
+                        COALESCE(NEW.title, '') || ' ' ||
                         COALESCE(NEW.meta_description, '') || ' ' ||
                         COALESCE(NEW.search_keywords, '')
                     );

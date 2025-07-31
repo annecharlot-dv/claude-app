@@ -1,6 +1,8 @@
 """
-University Module - Industry-specific experience for university campus facilities
-Transforms the universal platform into an academic facility management solution
+University Module - Industry-specific experience for university campus
+facilities
+Transforms the universal platform into an academic facility management
+solution
 """
 
 from typing import Any, Dict, List
@@ -150,7 +152,8 @@ class UniversityModule(BaseModule):
             },
             "front_desk": {
                 "display_name": "Campus Services",
-                "description": "Assists students with reservations and campus services",
+                "description": "Assists students with reservations and campus "
+                "services",
                 "permissions": [
                     "students.view",
                     "reservations.view",
@@ -162,7 +165,7 @@ class UniversityModule(BaseModule):
             },
             "faculty": {
                 "display_name": "Faculty Member",
-                "description": "Teaching staff with enhanced booking privileges",
+                "description": ("Teaching staff with enhanced booking privileges"),
                 "permissions": [
                     "reservations.create",
                     "lecture_halls.book",
@@ -283,7 +286,11 @@ class UniversityModule(BaseModule):
                     "type": "student_stats",
                     "title": "Student Engagement",
                     "position": {"row": 1, "col": 1, "span": 2},
-                    "metrics": ["active_students", "facility_usage", "study_sessions"],
+                    "metrics": [
+                        "active_students",
+                        "facility_usage",
+                        "study_sessions",
+                    ],
                 },
                 {
                     "type": "facility_overview",
@@ -313,7 +320,11 @@ class UniversityModule(BaseModule):
                     "action": "book_study_room",
                     "icon": "book",
                 },
-                {"name": "Campus Event", "action": "create_event", "icon": "calendar"},
+                {
+                    "name": "Campus Event",
+                    "action": "create_event",
+                    "icon": "calendar",
+                },
                 {
                     "name": "Student Support",
                     "action": "student_help",
@@ -337,7 +348,8 @@ class UniversityModule(BaseModule):
                         "type": "hero_banner",
                         "config": {
                             "title": "Campus Facility Resources",
-                            "subtitle": "Book study spaces, labs, and meeting rooms for your academic success",
+                            "subtitle": "Book study spaces, labs, and meeting "
+                            "rooms for your academic success",
                             "cta_text": "Reserve Study Space",
                             "cta_action": "book_space",
                         },
@@ -370,7 +382,11 @@ class UniversityModule(BaseModule):
                 "fields": [
                     {"label": "Full Name", "type": "text", "required": True},
                     {"label": "Email", "type": "email", "required": True},
-                    {"label": "High School", "type": "text", "required": False},
+                    {
+                        "label": "High School",
+                        "type": "text",
+                        "required": False,
+                    },
                     {
                         "label": "Intended Major",
                         "type": "select",
@@ -383,7 +399,11 @@ class UniversityModule(BaseModule):
                             "Undecided",
                         ],
                     },
-                    {"label": "Campus Tour Date", "type": "date", "required": True},
+                    {
+                        "label": "Campus Tour Date",
+                        "type": "date",
+                        "required": True,
+                    },
                     {
                         "label": "Areas of Interest",
                         "type": "textarea",
@@ -394,9 +414,17 @@ class UniversityModule(BaseModule):
             "research_space_request": {
                 "name": "Research Space Booking",
                 "fields": [
-                    {"label": "Researcher Name", "type": "text", "required": True},
+                    {
+                        "label": "Researcher Name",
+                        "type": "text",
+                        "required": True,
+                    },
                     {"label": "Department", "type": "text", "required": True},
-                    {"label": "Research Project", "type": "text", "required": True},
+                    {
+                        "label": "Research Project",
+                        "type": "text",
+                        "required": True,
+                    },
                     {
                         "label": "Space Type",
                         "type": "select",
@@ -444,7 +472,7 @@ class UniversityModule(BaseModule):
             {
                 "type": "lecture_hall",
                 "display_name": "Lecture Hall",
-                "description": "Large classroom for lectures and presentations",
+                "description": ("Large classroom for lectures and presentations"),
                 "pricing_type": "free",
                 "bookable": True,
                 "requires_approval": True,

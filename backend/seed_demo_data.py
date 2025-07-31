@@ -3,7 +3,6 @@
 Seed demo data for the Space Management Platform
 """
 import asyncio
-import os
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path

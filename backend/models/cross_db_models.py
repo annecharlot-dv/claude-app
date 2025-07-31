@@ -4,7 +4,6 @@ Compatible with both PostgreSQL and SQLite for development
 """
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import (
     JSON,

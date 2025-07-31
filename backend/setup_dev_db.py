@@ -5,18 +5,19 @@ Creates a SQLite database for local development and testing
 """
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from models.postgresql_models import Base
 
 # Add backend to path
 sys.path.append(str(Path(__file__).parent))
-
-from database.postgresql_connection import PostgreSQLConnectionManager
-from models.cross_db_models import Base
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

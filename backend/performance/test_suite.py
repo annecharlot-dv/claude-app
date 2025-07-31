@@ -76,7 +76,7 @@ class PerformanceTester:
                 else:
                     test.target_function(*test.args, **(test.kwargs or {}))
 
-                execution_time = (time.time() - start_time) * 1000  # Convert to ms
+                execution_time = (time.time() - start_time) * 1000
                 execution_times.append(execution_time)
                 successful_runs += 1
 
@@ -94,7 +94,8 @@ class PerformanceTester:
             p99_time = self._percentile(execution_times, 99)
             total_time = sum(execution_times)
         else:
-            avg_time = min_time = max_time = p95_time = p99_time = total_time = 0
+            avg_time = min_time = max_time = 0
+            p95_time = p99_time = total_time = 0
 
         success_rate = (successful_runs / test.iterations) * 100
         target_met = avg_time <= test.target_time_ms and success_rate >= 95
@@ -120,7 +121,8 @@ class PerformanceTester:
     async def run_concurrent_test(self, test: PerformanceTest) -> TestResult:
         """Run test with concurrent users"""
         logger.info(
-            f"Running concurrent test: {test.name} with {test.concurrent_users} users"
+            f"Running concurrent test: {test.name} with "
+            f"{test.concurrent_users} users"
         )
 
         # Create tasks for concurrent execution
@@ -163,7 +165,8 @@ class PerformanceTester:
             p99_time = self._percentile(all_times, 99)
             total_time = sum(all_times)
         else:
-            avg_time = min_time = max_time = p95_time = p99_time = total_time = 0
+            avg_time = min_time = max_time = 0
+            p95_time = p99_time = total_time = 0
 
         success_rate = (
             (total_successful / total_iterations) * 100 if total_iterations > 0 else 0
@@ -251,7 +254,8 @@ class PerformanceTester:
         """Save performance report to file"""
         if filename is None:
             filename = (
-                f"performance_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+                f"performance_report_"
+                f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
             )
 
         report = self.generate_report()
@@ -329,10 +333,10 @@ class DatabasePerformanceTests:
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
                 select(User)
-                .where(User.tenant_id == "test_tenant", User.is_active == True)
+                .where(User.tenant_id == "test_tenant", User.is_active.is_(True))
                 .limit(100)
             )
-            users = result.scalars().all()
+            result.scalars().all()
 
     async def _test_page_query(self):
         """Test page query performance"""
@@ -346,7 +350,7 @@ class DatabasePerformanceTests:
                 .where(Page.tenant_id == "test_tenant", Page.status == "published")
                 .limit(100)
             )
-            pages = result.scalars().all()
+            result.scalars().all()
 
     async def _test_lead_query(self):
         """Test lead query performance"""
@@ -361,7 +365,7 @@ class DatabasePerformanceTests:
                 .order_by(Lead.created_at.desc())
                 .limit(50)
             )
-            leads = result.scalars().all()
+            result.scalars().all()
 
     async def run_tests(self) -> Dict[str, Any]:
         """Run all database performance tests"""

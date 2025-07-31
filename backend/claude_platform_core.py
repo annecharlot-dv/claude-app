@@ -1,10 +1,11 @@
 """
-Claude Platform Core - Integrates kernels with modules for complete experience orchestration
+Claude Platform Core - Integrates kernels with modules for complete
+experience orchestration
 """
 
 import os
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -148,9 +149,9 @@ class ClaudePlatformCore:
 
         # Get basic stats from kernels
         identity_kernel = self.kernels["identity"]
-        booking_kernel = self.kernels["booking"]
-        financial_kernel = self.kernels["financial"]
-        cms_kernel = self.kernels["cms"]
+        # booking_kernel = self.kernels["booking"]  # Unused in current
+        # financial_kernel = self.kernels["financial"]  # Unused in current
+        # cms_kernel = self.kernels["cms"]  # Unused in current
 
         # Get user info
         user = await identity_kernel.get_user_by_id(user_id)
@@ -173,14 +174,15 @@ class ClaudePlatformCore:
             if metric_name == "active_users" or metric_name == "active_members":
                 result = await self.session.execute(
                     select(func.count(User.id)).where(
-                        User.tenant_id == tenant_id, User.is_active == True
+                        User.tenant_id == tenant_id, User.is_active.is_(True)
                     )
                 )
                 metrics[metric_name] = result.scalar()
             elif metric_name == "total_bookings" or metric_name == "active_bookings":
                 result = await self.session.execute(
                     select(func.count(Booking.id)).where(
-                        Booking.tenant_id == tenant_id, Booking.status == "confirmed"
+                        Booking.tenant_id == tenant_id,
+                        Booking.status == "confirmed",
                     )
                 )
                 metrics[metric_name] = result.scalar()
@@ -217,7 +219,7 @@ class ClaudePlatformCore:
         from models.postgresql_models import Tenant
 
         result = await self.session.execute(
-            select(func.count(Tenant.id)).where(Tenant.is_active == True)
+            select(func.count(Tenant.id)).where(Tenant.is_active.is_(True))
         )
         total_tenants = result.scalar()
 

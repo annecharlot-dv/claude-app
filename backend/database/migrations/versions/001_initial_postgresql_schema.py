@@ -62,13 +62,21 @@ def upgrade() -> None:
     )
     op.create_index("idx_tenants_subdomain", "tenants", ["subdomain"], unique=True)
     op.create_index(
-        "idx_tenants_industry_active", "tenants", ["industry_module", "is_active"]
+        "idx_tenants_industry_active",
+        "tenants",
+        ["industry_module", "is_active"],
     )
     op.create_index(
-        "idx_tenants_branding_gin", "tenants", ["branding"], postgresql_using="gin"
+        "idx_tenants_branding_gin",
+        "tenants",
+        ["branding"],
+        postgresql_using="gin",
     )
     op.create_index(
-        "idx_tenants_settings_gin", "tenants", ["settings"], postgresql_using="gin"
+        "idx_tenants_settings_gin",
+        "tenants",
+        ["settings"],
+        postgresql_using="gin",
     )
 
     # Create users table
@@ -180,7 +188,10 @@ def upgrade() -> None:
     )
     op.create_index("idx_pages_tenant_status", "pages", ["tenant_id", "status"])
     op.create_index(
-        "idx_pages_content_gin", "pages", ["content_blocks"], postgresql_using="gin"
+        "idx_pages_content_gin",
+        "pages",
+        ["content_blocks"],
+        postgresql_using="gin",
     )
 
     # Create leads table
@@ -198,7 +209,12 @@ def upgrade() -> None:
         sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("phone", sa.String(length=50), nullable=True),
         sa.Column("company", sa.String(length=255), nullable=True),
-        sa.Column("status", sa.String(length=50), nullable=True, default="new_inquiry"),
+        sa.Column(
+            "status",
+            sa.String(length=50),
+            nullable=True,
+            default="new_inquiry",
+        ),
         sa.Column("source", sa.String(length=100), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column("assigned_to", postgresql.UUID(as_uuid=True), nullable=True),
@@ -508,8 +524,8 @@ def upgrade() -> None:
         CREATE OR REPLACE FUNCTION update_page_search_vector()
         RETURNS TRIGGER AS $$
         BEGIN
-            NEW.search_vector := to_tsvector('english', 
-                COALESCE(NEW.title, '') || ' ' || 
+            NEW.search_vector := to_tsvector('english',
+                COALESCE(NEW.title, '') || ' ' ||
                 COALESCE(NEW.meta_description, '') || ' ' ||
                 COALESCE(NEW.search_keywords, '')
             );
@@ -598,10 +614,11 @@ def upgrade() -> None:
     op.execute("CREATE ROLE application_role")
     op.execute("GRANT USAGE ON SCHEMA public TO application_role")
     op.execute(
-        "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO application_role"
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public "
+        "TO application_role"
     )
     op.execute(
-        "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO application_role"
+        "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public " "TO application_role"
     )
 
 
@@ -612,7 +629,7 @@ def downgrade() -> None:
     op.execute("DROP POLICY IF EXISTS tenant_isolation_leads ON leads")
     op.execute("DROP POLICY IF EXISTS tenant_isolation_forms ON forms")
     op.execute("DROP POLICY IF EXISTS tenant_isolation_widgets ON widgets")
-    op.execute("DROP POLICY IF EXISTS tenant_isolation_tour_slots ON tour_slots")
+    op.execute("DROP POLICY IF EXISTS tenant_isolation_tour_slots " "ON tour_slots")
     op.execute("DROP POLICY IF EXISTS tenant_isolation_tours ON tours")
 
     # Drop application role

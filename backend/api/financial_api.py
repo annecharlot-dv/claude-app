@@ -3,8 +3,7 @@ Financial Management API
 Provides endpoints for billing, invoicing, payments, and financial reporting
 """
 
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -122,7 +121,9 @@ async def get_financial_kernel(request: Request) -> FinancialKernel:
 
 # Product Management Endpoints
 @router.post(
-    "/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED
+    "/products",
+    response_model=ProductResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_product(
     request: CreateProductRequest,
@@ -187,7 +188,9 @@ async def list_products(
 
 # Invoice Management Endpoints
 @router.post(
-    "/invoices", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED
+    "/invoices",
+    response_model=InvoiceResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_invoice(
     request: CreateInvoiceRequest,
@@ -279,7 +282,8 @@ async def update_invoice_status(
         success = await financial_kernel.update_invoice_status(invoice_id, new_status)
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invoice not found",
             )
 
         return {"message": f"Invoice status updated to {new_status}"}
@@ -295,7 +299,9 @@ async def update_invoice_status(
 
 # Payment Processing Endpoints
 @router.post(
-    "/payments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED
+    "/payments",
+    response_model=PaymentResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def process_payment(
     request: ProcessPaymentRequest,
@@ -432,10 +438,10 @@ async def process_subscription_billing(
     try:
         processed_invoices = await financial_kernel.process_subscription_billing(
             tenant_id
-        )
+        )  # noqa: E501
 
         return {
-            "message": f"Processed {len(processed_invoices)} subscription billings",
+            "message": (f"Processed {len(processed_invoices)} subscription billings"),
             "invoices_created": len(processed_invoices),
             "invoice_ids": [inv["id"] for inv in processed_invoices],
         }

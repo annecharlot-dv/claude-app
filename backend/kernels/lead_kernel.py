@@ -210,14 +210,6 @@ class LeadKernel(BaseKernel):
         offset: int = 0,
     ) -> List[LeadModel]:
         """List leads with filtering"""
-        query = {"tenant_id": tenant_id}
-
-        if status:
-            query["status"] = status
-        if assigned_to:
-            query["assigned_to"] = assigned_to
-        if source:
-            query["source"] = source
 
         from sqlalchemy import select
 
@@ -359,9 +351,6 @@ class LeadKernel(BaseKernel):
         self, tenant_id: str, active_only: bool = True
     ) -> List[FormModel]:
         """List forms for tenant"""
-        query = {"tenant_id": tenant_id}
-        if active_only:
-            query["is_active"] = True
 
         from sqlalchemy import select
 
@@ -370,7 +359,7 @@ class LeadKernel(BaseKernel):
         async with self.connection_manager.get_session() as session:
             query_conditions = [Form.tenant_id == tenant_id]
             if active_only:
-                query_conditions.append(Form.is_active == True)
+                query_conditions.append(Form.is_active is True)
 
             result = await session.execute(
                 select(Form).where(*query_conditions).order_by(Form.created_at.desc())
@@ -472,7 +461,7 @@ class LeadKernel(BaseKernel):
                 TourSlot.tenant_id == tenant_id,
                 TourSlot.date >= start_date,
                 TourSlot.date <= end_date,
-                TourSlot.is_available == True,
+                TourSlot.is_available is True,
                 TourSlot.current_bookings < TourSlot.max_bookings,
             ]
 
@@ -503,7 +492,7 @@ class LeadKernel(BaseKernel):
                 select(TourSlot).where(
                     TourSlot.tenant_id == tenant_id,
                     TourSlot.id == tour_slot_id,
-                    TourSlot.is_available == True,
+                    TourSlot.is_available is True,
                     TourSlot.current_bookings < TourSlot.max_bookings,
                 )
             )
@@ -674,7 +663,8 @@ class LeadKernel(BaseKernel):
         # This would integrate with the communication kernel
         # For now, just log the notification
         print(
-            f"Sending form notification for lead {lead.id} to {form.email_notifications}"
+            f"Sending form notification for lead {lead.id} to "
+            f"{form.email_notifications}"
         )
 
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:

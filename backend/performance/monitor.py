@@ -4,11 +4,10 @@ Real-time performance tracking with alerting and metrics collection
 """
 
 import asyncio
-import json
 import logging
 import time
 from collections import deque
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -108,7 +107,8 @@ class PerformanceMonitor:
             self.alerts.append(alert)
 
             logger.warning(
-                f"🚨 Performance alert: {metric.metric_type} = {metric.value} (threshold: {threshold})"
+                f"🚨 Performance alert: {metric.metric_type} = {metric.value} "
+                f"(threshold: {threshold})"
             )
 
     async def _monitor_system_resources(self):
@@ -285,7 +285,9 @@ class PerformanceMonitor:
                 self._calculate_percentile(response_times, 95) if response_times else 0
             ),
             "total_db_queries": len(db_queries),
-            "avg_db_query_time": sum(db_queries) / len(db_queries) if db_queries else 0,
+            "avg_db_query_time": (
+                sum(db_queries) / len(db_queries) if db_queries else 0
+            ),
             "p95_db_query_time": (
                 self._calculate_percentile(db_queries, 95) if db_queries else 0
             ),
@@ -302,7 +304,7 @@ def monitor_performance(metric_type: str = "response_time"):
 
             try:
                 result = await func(*args, **kwargs)
-                execution_time = (time.time() - start_time) * 1000  # Convert to ms
+                execution_time = (time.time() - start_time) * 1000
 
                 # Extract tenant_id if available
                 tenant_id = None
@@ -315,7 +317,10 @@ def monitor_performance(metric_type: str = "response_time"):
                 await performance_monitor.record_metric(
                     metric_type=metric_type,
                     value=execution_time,
-                    metadata={"function": func.__name__, "module": func.__module__},
+                    metadata={
+                        "function": func.__name__,
+                        "module": func.__module__,
+                    },
                     tenant_id=tenant_id,
                 )
 

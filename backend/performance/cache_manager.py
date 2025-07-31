@@ -1,15 +1,14 @@
 """
 Enterprise Caching Manager
-Implements multi-layer caching with intelligent invalidation for optimal performance
+Implements multi-layer caching with intelligent invalidation for optimal
+performance
 """
 
-import asyncio
 import hashlib
 import json
 import logging
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,12 @@ class CacheManager:
         self.l3_cache = {}  # Cold data (< 100MB, < 24h TTL)
 
         # Cache metadata
-        self.cache_stats = {"hits": 0, "misses": 0, "invalidations": 0, "size_bytes": 0}
+        self.cache_stats = {
+            "hits": 0,
+            "misses": 0,
+            "invalidations": 0,
+            "size_bytes": 0,
+        }
 
         # TTL configurations (in seconds)
         self.ttl_config = {
@@ -91,7 +95,11 @@ class CacheManager:
         return None
 
     async def set(
-        self, key: str, data: Any, ttl: Optional[int] = None, tags: List[str] = None
+        self,
+        key: str,
+        data: Any,
+        ttl: Optional[int] = None,
+        tags: List[str] = None,
     ) -> bool:
         """Set value in appropriate cache layer"""
         try:
@@ -273,7 +281,10 @@ class TenantCacheManager(CacheManager):
         """Cache user data"""
         key = self._generate_cache_key("user", tenant_id=tenant_id, user_id=user_id)
         await self.set(
-            key, data, ttl=1800, tags=[f"tenant:{tenant_id}", f"user:{user_id}"]
+            key,
+            data,
+            ttl=1800,
+            tags=[f"tenant:{tenant_id}", f"user:{user_id}"],
         )
 
     async def invalidate_tenant(self, tenant_id: str):

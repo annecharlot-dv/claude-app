@@ -10,11 +10,11 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from models.postgresql_models import Base
+
 # Add the backend directory to the path
 backend_dir = Path(__file__).parent.parent.parent
 sys.path.append(str(backend_dir))
-
-from models.postgresql_models import Base
 
 # this is the Alembic Config object
 config = context.config

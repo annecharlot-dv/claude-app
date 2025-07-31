@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from kernels.identity_kernel import IdentityKernel
 from middleware.tenant_middleware import (
     TenantSecurityValidator,
     get_tenant_from_request,

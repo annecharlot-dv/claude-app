@@ -13,7 +13,6 @@ from kernels.base_kernel import BaseKernel
 from models.postgresql_models import (
     Invoice,
     LineItem,
-    Payment,
     Product,
     Subscription,
     Transaction,
@@ -36,8 +35,7 @@ class FinancialKernel(BaseKernel):
                     and_(User.id == user_id, User.tenant_id == tenant_id)
                 )
             )
-            user = result.scalar_one_or_none()
-            return user is not None
+            return result.scalar_one_or_none() is not None
 
     # Product/Service Management
     async def create_product(
@@ -51,8 +49,7 @@ class FinancialKernel(BaseKernel):
                 "is_active": True,
                 "created_at": datetime.utcnow(),
             }
-            product = Product(**product_doc)
-            session.add(product)
+            session.add(Product(**product_doc))
             await session.commit()
             return product_doc
 
@@ -66,8 +63,7 @@ class FinancialKernel(BaseKernel):
                     and_(Product.tenant_id == tenant_id, Product.is_active == is_active)
                 )
             )
-            products = result.scalars().all()
-            return [product.__dict__ for product in products]
+            return [product.__dict__ for product in result.scalars().all()]
 
     # Invoice Management
     async def create_invoice(
@@ -83,9 +79,7 @@ class FinancialKernel(BaseKernel):
             Decimal(str(item["quantity"])) * Decimal(str(item["unit_price"]))
             for item in line_items
         )
-        tax_amount = subtotal * Decimal(
-            "0.0"
-        )  # Default no tax, can be configured per tenant
+        tax_amount = subtotal * Decimal("0.0")
         total_amount = subtotal + tax_amount
 
         invoice_doc = {
@@ -102,15 +96,15 @@ class FinancialKernel(BaseKernel):
         }
 
         async with self.connection_manager.get_session() as session:
-            invoice = Invoice(**invoice_doc)
-            session.add(invoice)
+            session.add(Invoice(**invoice_doc))
             await session.flush()
 
             # Create line items
             for item in line_items:
                 line_item_doc = {
                     **item,
-                    "id": f"li_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{len(line_items)}",
+                    "id": f"li_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+                    f"_{len(line_items)}",
                     "tenant_id": tenant_id,
                     "invoice_id": invoice_doc["id"],
                     "line_total": float(
@@ -119,8 +113,7 @@ class FinancialKernel(BaseKernel):
                     ),
                     "created_at": datetime.utcnow(),
                 }
-                line_item = LineItem(**line_item_doc)
-                session.add(line_item)
+                session.add(LineItem(**line_item_doc))
 
             await session.commit()
 

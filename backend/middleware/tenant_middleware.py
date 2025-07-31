@@ -6,9 +6,8 @@ Handles subdomain-based tenant resolution and context injection
 import logging
 import re
 from typing import Any, Dict, Optional
-from urllib.parse import urlparse
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -18,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class TenantMiddleware(BaseHTTPMiddleware):
-    """Middleware to resolve tenant from subdomain and inject into request context"""
+    """Middleware to resolve tenant from subdomain and inject into request
+    context"""
 
     def __init__(self, app, tenant_repo: TenantRepository):
         super().__init__(app)
@@ -43,14 +43,14 @@ class TenantMiddleware(BaseHTTPMiddleware):
 
         if not tenant:
             return JSONResponse(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=404,
                 content={"detail": "Tenant not found or invalid subdomain"},
             )
 
         # Check tenant status
         if tenant.status != "active" and tenant.status != "trial":
             return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=403,
                 content={"detail": f"Tenant account is {tenant.status}"},
             )
 
@@ -124,7 +124,7 @@ class TenantContextManager:
         """Get tenant from request state"""
         if not hasattr(request.state, "tenant"):
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=500,
                 detail="Tenant context not available",
             )
         return request.state.tenant
@@ -134,7 +134,7 @@ class TenantContextManager:
         """Get tenant ID from request state"""
         if not hasattr(request.state, "tenant_id"):
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=500,
                 detail="Tenant context not available",
             )
         return request.state.tenant_id
@@ -191,7 +191,11 @@ class TenantAwareRepository:
             return result.scalar_one_or_none()
 
     async def find_many(
-        self, query_conditions: list, tenant_id: str, limit: int = 100, skip: int = 0
+        self,
+        query_conditions: list,
+        tenant_id: str,
+        limit: int = 100,
+        skip: int = 0,
     ) -> list:
         """Find multiple documents with tenant filtering"""
         from sqlalchemy import select
@@ -214,7 +218,10 @@ class TenantAwareRepository:
             return obj
 
     async def update_one(
-        self, query_conditions: list, update_data: Dict[str, Any], tenant_id: str
+        self,
+        query_conditions: list,
+        update_data: Dict[str, Any],
+        tenant_id: str,
     ) -> Any:
         """Update document with tenant filtering"""
         from sqlalchemy import update
@@ -252,7 +259,9 @@ class TenantSecurityValidator:
 
     @staticmethod
     def validate_cross_tenant_access(
-        current_tenant_id: str, resource_tenant_id: str, operation: str = "access"
+        current_tenant_id: str,
+        resource_tenant_id: str,
+        operation: str = "access",
     ) -> bool:
         """Validate that cross-tenant access is not occurring"""
         if current_tenant_id != resource_tenant_id:

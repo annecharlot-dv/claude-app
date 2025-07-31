@@ -3,14 +3,12 @@ Database Performance Optimizer
 Implements enterprise-grade database optimizations for PostgreSQL
 """
 
-import asyncio
-import json
 import logging
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict, List
 
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 
 from database.postgresql_connection import PostgreSQLConnectionManager
 
@@ -18,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseOptimizer:
-    """Optimizes database performance with indexes, query optimization, and monitoring"""
+    """Optimizes database performance with indexes, query optimization, and
+    monitoring"""
 
     def __init__(self, connection_manager: PostgreSQLConnectionManager):
         self.connection_manager = connection_manager
@@ -46,12 +45,12 @@ class DatabaseOptimizer:
                 result = await session.execute(
                     text(
                         """
-                    SELECT 
+                    SELECT
                         schemaname,
                         tablename,
                         indexname,
                         indexdef
-                    FROM pg_indexes 
+                    FROM pg_indexes
                     WHERE schemaname = 'public'
                     ORDER BY tablename, indexname
                 """
@@ -59,9 +58,7 @@ class DatabaseOptimizer:
                 )
 
                 indexes = result.fetchall()
-                self.existing_indexes = {
-                    f"{idx.tablename}": idx.indexdef for idx in indexes
-                }
+                self.existing_indexes = {idx.tablename: idx.indexdef for idx in indexes}
 
                 logger.info(f"Analyzed {len(indexes)} existing indexes")
 
@@ -88,11 +85,11 @@ class DatabaseOptimizer:
                 result = await session.execute(
                     text(
                         """
-                    SELECT 
+                    SELECT
                         t.table_name,
                         c.column_name
                     FROM information_schema.table_constraints t
-                    JOIN information_schema.constraint_column_usage c 
+                    JOIN information_schema.constraint_column_usage c
                         ON t.constraint_name = c.constraint_name
                     WHERE t.constraint_type = 'FOREIGN KEY'
                         AND t.table_schema = 'public'
@@ -108,9 +105,9 @@ class DatabaseOptimizer:
                     index_check = await session.execute(
                         text(
                             f"""
-                        SELECT indexname 
-                        FROM pg_indexes 
-                        WHERE tablename = '{table_name}' 
+                        SELECT indexname
+                        FROM pg_indexes
+                        WHERE tablename = '{table_name}'
                             AND indexdef LIKE '%{column_name}%'
                     """
                         )
@@ -124,13 +121,17 @@ class DatabaseOptimizer:
                                 "column": column_name,
                                 "reason": "Foreign key without index",
                                 "impact": "high",
-                                "sql": f"CREATE INDEX idx_{table_name}_{column_name} ON {table_name}({column_name})",
+                                "sql": (
+                                    f"CREATE INDEX "
+                                    f"idx_{table_name}_{column_name} "
+                                    f"ON {table_name}({column_name})"
+                                ),
                             }
                         )
 
                 self.index_recommendations = recommendations
                 logger.info(
-                    f"Generated {len(recommendations)} optimization recommendations"
+                    f"Generated {len(recommendations)} optimization " f"recommendations"
                 )
 
         except Exception as e:
@@ -247,7 +248,8 @@ class DatabaseOptimizer:
         if execution_time > self.slow_query_threshold:
             metrics["slow_queries"] += 1
             logger.warning(
-                f"Slow query detected: {table_name}.{operation} took {execution_time:.2f}ms"
+                f"Slow query detected: {table_name}.{operation} took "
+                f"{execution_time:.2f}ms"
             )
 
     async def get_performance_metrics(self) -> Dict[str, Any]:
@@ -290,14 +292,17 @@ class DatabaseOptimizer:
                 result = await session.execute(
                     text(
                         """
-                    SELECT 
+                    SELECT
                         schemaname,
                         tablename,
-                        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
-                        pg_total_relation_size(schemaname||'.'||tablename) as size_bytes
-                    FROM pg_tables 
+                        pg_size_pretty(pg_total_relation_size(
+                            schemaname||'.'||tablename)) as size,
+                        pg_total_relation_size(
+                            schemaname||'.'||tablename) as size_bytes
+                    FROM pg_tables
                     WHERE schemaname = 'public'
-                    ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+                    ORDER BY pg_total_relation_size(
+                        schemaname||'.'||tablename) DESC
                 """
                     )
                 )
@@ -308,10 +313,12 @@ class DatabaseOptimizer:
                 conn_result = await session.execute(
                     text(
                         """
-                    SELECT 
+                    SELECT
                         count(*) as total_connections,
-                        count(*) FILTER (WHERE state = 'active') as active_connections,
-                        count(*) FILTER (WHERE state = 'idle') as idle_connections
+                        count(*) FILTER (WHERE state = 'active') as
+                            active_connections,
+                        count(*) FILTER (WHERE state = 'idle') as
+                            idle_connections
                     FROM pg_stat_activity
                 """
                     )
@@ -347,7 +354,7 @@ class DatabaseOptimizer:
                 result = await session.execute(
                     text(
                         f"""
-                    SELECT 
+                    SELECT
                         n_tup_ins as inserts,
                         n_tup_upd as updates,
                         n_tup_del as deletes,
@@ -357,7 +364,7 @@ class DatabaseOptimizer:
                         last_autovacuum,
                         last_analyze,
                         last_autoanalyze
-                    FROM pg_stat_user_tables 
+                    FROM pg_stat_user_tables
                     WHERE relname = '{table_name}'
                 """
                     )
@@ -372,12 +379,12 @@ class DatabaseOptimizer:
                 index_result = await session.execute(
                     text(
                         f"""
-                    SELECT 
+                    SELECT
                         indexrelname as index_name,
                         idx_scan as scans,
                         idx_tup_read as tuples_read,
                         idx_tup_fetch as tuples_fetched
-                    FROM pg_stat_user_indexes 
+                    FROM pg_stat_user_indexes
                     WHERE relname = '{table_name}'
                 """
                     )
@@ -424,8 +431,8 @@ class DatabaseOptimizer:
                 result = await session.execute(
                     text(
                         """
-                    SELECT tablename 
-                    FROM pg_tables 
+                    SELECT tablename
+                    FROM pg_tables
                     WHERE schemaname = 'public'
                 """
                     )
@@ -460,7 +467,11 @@ class DatabaseOptimizer:
             if "tenant" in key.lower():
                 table_name, operation = key.split("_", 1)
                 tenant_metrics.append(
-                    {"table": table_name, "operation": operation, "metrics": metrics}
+                    {
+                        "table": table_name,
+                        "operation": operation,
+                        "metrics": metrics,
+                    }
                 )
 
         return tenant_metrics

@@ -3,21 +3,16 @@ Lead Management API
 Provides endpoints for lead capture, management, and tour scheduling
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
 from kernels.lead_kernel import (
-    FormFieldModel,
-    FormFieldType,
-    FormModel,
     LeadKernel,
-    LeadModel,
     LeadSource,
     LeadStatus,
-    TourSlotModel,
 )
 from middleware.tenant_middleware import get_tenant_id_from_request
 
@@ -118,7 +113,7 @@ async def get_lead_kernel(request: Request) -> LeadKernel:
 
 
 # Lead Management Endpoints
-@router.post("/", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=LeadResponse, status_code=201)
 async def create_lead(
     request: CreateLeadRequest,
     tenant_id: str = Depends(get_tenant_id_from_request),
@@ -146,7 +141,7 @@ async def create_lead(
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to create lead: {str(e)}",
         )
 
@@ -193,7 +188,7 @@ async def list_leads(
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to list leads: {str(e)}",
         )
 
@@ -240,9 +235,7 @@ async def update_lead(
     updates = {k: v for k, v in request.dict().items() if v is not None}
 
     if not updates:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No updates provided"
-        )
+        raise HTTPException(status_code=400, detail="No updates provided")
 
     success = await lead_kernel.update_lead(tenant_id, lead_id, updates)
     if not success:
@@ -253,9 +246,7 @@ async def update_lead(
     # Return updated lead
     updated_lead = await lead_kernel.get_lead_by_id(tenant_id, lead_id)
     if not updated_lead:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found after update"
-        )
+        raise HTTPException(status_code=404, detail="Lead not found after update")
 
     return LeadResponse(
         id=updated_lead.id,
@@ -292,7 +283,7 @@ async def assign_lead(
 
 
 # Form Management Endpoints
-@router.post("/forms", response_model=FormResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/forms", response_model=FormResponse, status_code=201)
 async def create_form(
     request: CreateFormRequest,
     tenant_id: str = Depends(get_tenant_id_from_request),
@@ -315,7 +306,7 @@ async def create_form(
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to create form: {str(e)}",
         )
 
@@ -346,7 +337,7 @@ async def list_forms(
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to list forms: {str(e)}",
         )
 
@@ -360,9 +351,7 @@ async def get_form(
     """Get form by ID"""
     form = await lead_kernel.get_form_by_id(tenant_id, form_id)
     if not form:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Form not found"
-        )
+        raise HTTPException(status_code=404, detail="Form not found")
 
     return FormResponse(
         id=form.id,
@@ -404,16 +393,16 @@ async def submit_form(
         )
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to submit form: {str(e)}",
         )
 
 
 # Tour Scheduling Endpoints
-@router.post("/tours/slots", status_code=status.HTTP_201_CREATED)
+@router.post("/tours/slots", status_code=201)
 async def create_tour_slots(
     request: CreateTourSlotsRequest,
     tenant_id: str = Depends(get_tenant_id_from_request),
@@ -437,7 +426,7 @@ async def create_tour_slots(
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to create tour slots: {str(e)}",
         )
 
@@ -465,14 +454,14 @@ async def get_available_tour_slots(
                 "staff_user_id": slot.staff_user_id,
                 "date": slot.date,
                 "duration_minutes": slot.duration_minutes,
-                "available_bookings": slot.max_bookings - slot.current_bookings,
+                "available_bookings": (slot.max_bookings - slot.current_bookings),
             }
             for slot in slots
         ]
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to get tour slots: {str(e)}",
         )
 
@@ -493,8 +482,10 @@ async def schedule_tour(
 
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unable to schedule tour - slot may be unavailable or lead not found",
+            status_code=400,
+            detail=(
+                "Unable to schedule tour - slot may be unavailable or " "lead not found"
+            ),
         )
 
     return {"message": "Tour scheduled successfully"}
@@ -537,6 +528,6 @@ async def get_lead_analytics(
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail=f"Failed to get analytics: {str(e)}",
         )

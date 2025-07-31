@@ -1,5 +1,6 @@
 """
-Residential Module - Industry-specific experience for residential lofts and home offices
+Residential Module - Industry-specific experience for residential lofts and
+home offices
 Transforms the universal platform into a residential space management solution
 """
 
@@ -9,7 +10,8 @@ from .base_module import BaseModule
 
 
 class ResidentialModule(BaseModule):
-    """Residential industry module - home office and residential space management"""
+    """Residential industry module - home office and residential space
+    management"""
 
     def get_module_name(self) -> str:
         return "Residential Space Management Hub"
@@ -187,7 +189,11 @@ class ResidentialModule(BaseModule):
             "security": {
                 "display_name": "Security Personnel",
                 "description": "Provides security and access control",
-                "permissions": ["security.monitor", "visitor.screen", "access.control"],
+                "permissions": [
+                    "security.monitor",
+                    "visitor.screen",
+                    "access.control",
+                ],
                 "level": 2,
             },
             "member": {
@@ -296,19 +302,31 @@ class ResidentialModule(BaseModule):
                     "type": "resident_satisfaction",
                     "title": "Resident Satisfaction",
                     "position": {"row": 1, "col": 1, "span": 2},
-                    "metrics": ["satisfaction_score", "retention_rate", "referrals"],
+                    "metrics": [
+                        "satisfaction_score",
+                        "retention_rate",
+                        "referrals",
+                    ],
                 },
                 {
                     "type": "amenity_usage",
                     "title": "Amenity Usage",
                     "position": {"row": 1, "col": 3, "span": 2},
-                    "metrics": ["popular_amenities", "peak_times", "utilization_rate"],
+                    "metrics": [
+                        "popular_amenities",
+                        "peak_times",
+                        "utilization_rate",
+                    ],
                 },
                 {
                     "type": "maintenance_overview",
                     "title": "Maintenance Status",
                     "position": {"row": 2, "col": 1, "span": 2},
-                    "metrics": ["open_requests", "response_time", "completion_rate"],
+                    "metrics": [
+                        "open_requests",
+                        "response_time",
+                        "completion_rate",
+                    ],
                 },
                 {
                     "type": "community_engagement",
@@ -361,7 +379,10 @@ class ResidentialModule(BaseModule):
                         "type": "hero_banner",
                         "config": {
                             "title": "Your Home, Enhanced by Community",
-                            "subtitle": "Modern living with premium amenities and a vibrant resident community",
+                            "subtitle": (
+                                "Modern living with premium amenities and a "
+                                "vibrant resident community"
+                            ),
                             "cta_text": "Schedule Property Tour",
                             "cta_action": "schedule_tour",
                         },
@@ -384,7 +405,10 @@ class ResidentialModule(BaseModule):
                     },
                     {
                         "type": "floor_plans",
-                        "config": {"title": "Available Units", "show_pricing": True},
+                        "config": {
+                            "title": "Available Units",
+                            "show_pricing": True,
+                        },
                     },
                 ],
             }
@@ -399,7 +423,11 @@ class ResidentialModule(BaseModule):
                     {"label": "Name", "type": "text", "required": True},
                     {"label": "Email", "type": "email", "required": True},
                     {"label": "Phone", "type": "phone", "required": True},
-                    {"label": "Desired Move-in Date", "type": "date", "required": True},
+                    {
+                        "label": "Desired Move-in Date",
+                        "type": "date",
+                        "required": True,
+                    },
                     {
                         "label": "Unit Type",
                         "type": "select",
@@ -428,7 +456,12 @@ class ResidentialModule(BaseModule):
                         "label": "Employment Status",
                         "type": "select",
                         "required": True,
-                        "options": ["Employed", "Self-employed", "Student", "Retired"],
+                        "options": [
+                            "Employed",
+                            "Self-employed",
+                            "Student",
+                            "Retired",
+                        ],
                     },
                     {
                         "label": "Additional Information",

@@ -2,7 +2,6 @@
 Comprehensive audit logging system for compliance and security monitoring
 """
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -11,7 +10,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -96,13 +95,13 @@ class AuditLogger:
                 await self._trigger_security_alert(audit_record)
 
             logger.info(
-                f"Audit event logged: {event_type.value} for tenant {tenant_id}"
+                f"Audit event logged: {event_type.value} for tenant " f"{tenant_id}"
             )
             return audit_record["id"]
 
         except Exception as e:
             logger.error(f"Failed to log audit event: {e}")
-            # In production, you might want to send this to a backup logging system
+            # In production, you might want to send this to a backup logging
             raise
 
     def _calculate_integrity_hash(self, record: Dict[str, Any]) -> str:
@@ -218,25 +217,6 @@ class AuditLogger:
     ) -> List[Dict[str, Any]]:
         """Get audit trail with filtering options"""
 
-        query = {"tenant_id": tenant_id}
-
-        # Date range filter
-        if start_date or end_date:
-            date_filter = {}
-            if start_date:
-                date_filter["$gte"] = start_date
-            if end_date:
-                date_filter["$lte"] = end_date
-            query["timestamp"] = date_filter
-
-        # Event type filter
-        if event_types:
-            query["event_type"] = {"$in": [et.value for et in event_types]}
-
-        # User filter
-        if user_id:
-            query["user_id"] = user_id
-
         try:
             from models.postgresql_models import AuditLog
 
@@ -302,12 +282,6 @@ class AuditLogger:
         end_date: datetime,
     ) -> Dict[str, Any]:
         """Generate compliance report for specific framework"""
-
-        query = {
-            "tenant_id": tenant_id,
-            "timestamp": {"$gte": start_date, "$lte": end_date},
-            "compliance_flags": compliance_framework,
-        }
 
         try:
             # Get all relevant audit records using PostgreSQL

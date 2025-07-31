@@ -1,5 +1,6 @@
 """
-Creative Studio Module - Industry-specific experience for creative/production studios
+Creative Studio Module - Industry-specific experience for creative/production
+studios
 Transforms the universal platform into a creative studio management solution
 """
 
@@ -9,7 +10,8 @@ from .base_module import BaseModule
 
 
 class CreativeStudioModule(BaseModule):
-    """Creative Studio industry module - creative space and production management"""
+    """Creative Studio industry module - creative space and production
+    management"""
 
     def get_module_name(self) -> str:
         return "Creative Studio Management Platform"
@@ -152,7 +154,7 @@ class CreativeStudioModule(BaseModule):
             },
             "administrator": {
                 "display_name": "Studio Manager",
-                "description": "Manages studio operations and creative programs",
+                "description": ("Manages studio operations and creative programs"),
                 "permissions": [
                     "artists.manage",
                     "studios.manage",
@@ -188,7 +190,7 @@ class CreativeStudioModule(BaseModule):
             },
             "technician": {
                 "display_name": "Studio Technician",
-                "description": "Maintains equipment and provides technical support",
+                "description": ("Maintains equipment and provides technical support"),
                 "permissions": [
                     "equipment.maintain",
                     "technical_support.provide",
@@ -342,13 +344,21 @@ class CreativeStudioModule(BaseModule):
                 },
             ],
             "quick_actions": [
-                {"name": "Book Studio Time", "action": "book_studio", "icon": "camera"},
+                {
+                    "name": "Book Studio Time",
+                    "action": "book_studio",
+                    "icon": "camera",
+                },
                 {
                     "name": "Schedule Workshop",
                     "action": "create_workshop",
                     "icon": "users",
                 },
-                {"name": "Upload Portfolio", "action": "upload_work", "icon": "upload"},
+                {
+                    "name": "Upload Portfolio",
+                    "action": "upload_work",
+                    "icon": "upload",
+                },
                 {
                     "name": "Equipment Check",
                     "action": "equipment_status",
@@ -367,7 +377,10 @@ class CreativeStudioModule(BaseModule):
                         "type": "hero_banner",
                         "config": {
                             "title": "Unleash Your Creative Potential",
-                            "subtitle": "Professional studios, expert guidance, and a vibrant creative community",
+                            "subtitle": (
+                                "Professional studios, expert guidance, "
+                                "and a vibrant creative community"
+                            ),
                             "cta_text": "Tour Our Studios",
                             "cta_action": "schedule_tour",
                             "creative_focus": True,
@@ -434,8 +447,16 @@ class CreativeStudioModule(BaseModule):
                             "Professional",
                         ],
                     },
-                    {"label": "Portfolio Website", "type": "url", "required": False},
-                    {"label": "Creative Goals", "type": "textarea", "required": True},
+                    {
+                        "label": "Portfolio Website",
+                        "type": "url",
+                        "required": False,
+                    },
+                    {
+                        "label": "Creative Goals",
+                        "type": "textarea",
+                        "required": True,
+                    },
                     {
                         "label": "Preferred Studio Type",
                         "type": "select",
@@ -453,7 +474,11 @@ class CreativeStudioModule(BaseModule):
             "studio_booking": {
                 "name": "Studio Session Request",
                 "fields": [
-                    {"label": "Project Name", "type": "text", "required": True},
+                    {
+                        "label": "Project Name",
+                        "type": "text",
+                        "required": True,
+                    },
                     {
                         "label": "Studio Type",
                         "type": "select",
@@ -466,7 +491,11 @@ class CreativeStudioModule(BaseModule):
                             "Green Screen Studio",
                         ],
                     },
-                    {"label": "Session Date", "type": "date", "required": True},
+                    {
+                        "label": "Session Date",
+                        "type": "date",
+                        "required": True,
+                    },
                     {
                         "label": "Duration",
                         "type": "select",
@@ -516,7 +545,7 @@ class CreativeStudioModule(BaseModule):
             {
                 "type": "video_studio",
                 "display_name": "Video Production Studio",
-                "description": "Video production space with professional equipment",
+                "description": ("Video production space with professional equipment"),
                 "pricing_type": "hourly",
                 "bookable": True,
                 "requires_approval": False,
@@ -525,7 +554,7 @@ class CreativeStudioModule(BaseModule):
             {
                 "type": "recording_studio",
                 "display_name": "Recording Studio",
-                "description": "Sound-proof recording space with audio equipment",
+                "description": ("Sound-proof recording space with audio equipment"),
                 "pricing_type": "hourly",
                 "bookable": True,
                 "requires_approval": True,
@@ -534,7 +563,7 @@ class CreativeStudioModule(BaseModule):
             {
                 "type": "art_studio",
                 "display_name": "Art Studio",
-                "description": "Creative workspace for traditional and digital art",
+                "description": ("Creative workspace for traditional and digital art"),
                 "pricing_type": "hourly",
                 "bookable": True,
                 "requires_approval": False,

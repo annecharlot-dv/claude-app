@@ -90,7 +90,7 @@ class IdentityKernel(BaseKernel):
                 select(User).where(
                     User.email == email,
                     User.tenant_id == tenant.id,
-                    User.is_active == True,
+                    User.is_active.is_(True),
                 )
             )
             user = user_result.scalar_one_or_none()
@@ -155,7 +155,7 @@ class IdentityKernel(BaseKernel):
         """Get user by ID"""
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
-                select(User).where(User.id == user_id, User.is_active == True)
+                select(User).where(User.id == user_id, User.is_active.is_(True))
             )
             user = result.scalar_one_or_none()
             if not user:
@@ -250,7 +250,7 @@ class IdentityKernel(BaseKernel):
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
                 select(Tenant).where(
-                    Tenant.subdomain == subdomain, Tenant.is_active == True
+                    Tenant.subdomain == subdomain, Tenant.is_active.is_(True)
                 )
             )
             tenant = result.scalar_one_or_none()
@@ -270,7 +270,7 @@ class IdentityKernel(BaseKernel):
         """Get tenant by ID"""
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
-                select(Tenant).where(Tenant.id == tenant_id, Tenant.is_active == True)
+                select(Tenant).where(Tenant.id == tenant_id, Tenant.is_active.is_(True))
             )
             tenant = result.scalar_one_or_none()
             if not tenant:

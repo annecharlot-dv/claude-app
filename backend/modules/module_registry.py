@@ -2,7 +2,7 @@
 Module Registry - Runtime module loading and management
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from modules.base_module import BaseModule
 from modules.coworking_module import CoworkingModule

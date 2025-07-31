@@ -3,7 +3,6 @@ API Performance Optimizer
 Implements response caching, compression, and optimization middleware
 """
 
-import asyncio
 import gzip
 import json
 import logging
@@ -358,7 +357,7 @@ def cache_response(ttl: int = 600, tags: list = None):
 
             # Generate cache key
             cache_key = (
-                f"{func.__name__}:{request.url.path}:{str(request.query_params)}"
+                f"{func.__name__}:{request.url.path}:" f"{str(request.query_params)}"
             )
             if tenant_id:
                 cache_key += f":{tenant_id}"
