@@ -6,9 +6,9 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+import pytest
 
-# Add backend to path
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from database.postgresql_connection import get_connection_manager
 from kernels.postgresql_identity_kernel import PostgreSQLIdentityKernel
@@ -18,6 +18,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@pytest.mark.asyncio
 async def test_postgresql_setup():
     """Test PostgreSQL setup and basic operations"""
     try:
