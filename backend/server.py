@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 # Import database components
-from database.postgresql_connection import get_connection_manager, get_db_session
+from database.config.connection_pool import PostgreSQLConnectionManager
 from kernels.postgresql_identity_kernel import PostgreSQLIdentityKernel
 from models.cross_db_models import Base
 
@@ -45,7 +45,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # PostgreSQL connection
-connection_manager = None
+connection_manager = PostgreSQLConnectionManager()
 
 # Security
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
@@ -76,7 +76,7 @@ async def startup_event():
     
     try:
         # Initialize PostgreSQL connection
-        connection_manager = await get_connection_manager()
+        connection_manager = PostgreSQLConnectionManager()
         await connection_manager.initialize()
         
         # Initialize identity kernel
@@ -416,7 +416,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 def require_role(required_roles: List[UserRole]):
     async def role_checker(current_user: User = Depends(get_current_user)):
-        core = await get_platform_core(db)
+        async with connection_manager.get_session() as session:
+            core = await get_platform_core(session)
         
         # Convert user role to string if it's an enum
         user_role_str = current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)
@@ -500,7 +501,12 @@ async def login_user(user_data: UserLogin, tenant_subdomain: str):
 @api_router.post("/tenants", response_model=Tenant)
 async def create_tenant(tenant_data: TenantCreate):
     # Check if subdomain is available
-    existing_tenant = await db.tenants.find_one({"subdomain": tenant_data.subdomain})
+    from backend.models.postgresql_models import Tenant
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(select(Tenant).where(Tenant.subdomain == tenant_data.subdomain))
+        existing_tenant = result.scalar_one_or_none()
     if existing_tenant:
         raise HTTPException(status_code=400, detail="Subdomain already taken")
     
@@ -511,7 +517,11 @@ async def create_tenant(tenant_data: TenantCreate):
         industry_module=tenant_data.industry_module,
         feature_toggles=get_default_feature_toggles(tenant_data.industry_module)
     )
-    await db.tenants.insert_one(tenant.dict())
+    
+    async with connection_manager.get_session() as session:
+        tenant_obj = Tenant(**tenant.dict())
+        session.add(tenant_obj)
+        await session.commit()
     
     # Create account owner
     hashed_password = get_password_hash(tenant_data.admin_password)
@@ -522,8 +532,16 @@ async def create_tenant(tenant_data: TenantCreate):
         last_name="Owner",
         role=UserRole.ACCOUNT_OWNER
     )
-    await db.users.insert_one(admin_user.dict())
-    await db.user_passwords.insert_one({"user_id": admin_user.id, "hashed_password": hashed_password})
+    
+    async with connection_manager.get_session() as session:
+        from backend.models.postgresql_models import User, UserPassword
+        
+        admin_user_obj = User(**admin_user.dict())
+        session.add(admin_user_obj)
+        
+        user_password = UserPassword(user_id=admin_user.id, hashed_password=hashed_password)
+        session.add(user_password)
+        await session.commit()
     
     # Create default homepage
     await create_default_homepage(tenant.id, tenant_data.industry_module)
@@ -563,7 +581,12 @@ def get_default_feature_toggles(industry_module: IndustryModule) -> Dict[str, bo
 async def create_default_homepage(tenant_id: str, industry_module: IndustryModule):
     """Create a default homepage based on industry module"""
     # Get default template for industry
-    template = await db.templates.find_one({"industry_module": industry_module})
+    from backend.models.postgresql_models import Template
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(select(Template).where(Template.industry_module == industry_module))
+        template = result.scalar_one_or_none()
     
     default_content = get_default_page_content(industry_module)
     
@@ -579,7 +602,12 @@ async def create_default_homepage(tenant_id: str, industry_module: IndustryModul
         is_homepage=True
     )
     
-    await db.pages.insert_one(homepage.dict())
+    async with connection_manager.get_session() as session:
+        from backend.models.postgresql_models import Page
+        
+        homepage_obj = Page(**homepage.dict())
+        session.add(homepage_obj)
+        await session.commit()
 
 def get_default_page_content(industry_module: IndustryModule) -> List[Dict[str, Any]]:
     """Get default content blocks for homepage based on industry"""
@@ -650,58 +678,77 @@ async def get_pages(
     skip: int = 0,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    # Use optimized database query
-    db_optimizer = await get_db_optimizer(db)
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select
     
-    query = {"tenant_id": current_user.tenant_id}
-    if status:
-        query["status"] = status
+    async with connection_manager.get_session() as session:
+        db_optimizer = await get_db_optimizer(session)
+        
+        query_conditions = [Page.tenant_id == current_user.tenant_id]
+        if status:
+            query_conditions.append(Page.status == status)
+        
+        result = await session.execute(
+            select(Page).where(*query_conditions).offset(skip).limit(limit)
+        )
+        pages = result.scalars().all()
+        
+        await db_optimizer.log_query_performance("pages", "find", len(pages))
+        
+        return pages
     
-    options = {
-        "sort": [("updated_at", -1)],
-        "limit": limit,
-        "skip": skip
-    }
-    
-    pages_data = await db_optimizer.optimize_query("pages", query, options)
-    return [Page(**page) for page in pages_data]
 
 @api_router.post("/cms/pages", response_model=Page)
 async def create_page(
     page_data: PageCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    # Check if slug already exists
-    existing_page = await db.pages.find_one({
-        "tenant_id": current_user.tenant_id,
-        "slug": page_data.slug
-    })
-    if existing_page:
-        raise HTTPException(status_code=400, detail="Page with this slug already exists")
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select, update
     
-    # If setting as homepage, unset current homepage
-    if page_data.is_homepage:
-        await db.pages.update_many(
-            {"tenant_id": current_user.tenant_id, "is_homepage": True},
-            {"$set": {"is_homepage": False}}
+    async with connection_manager.get_session() as session:
+        result = await session.execute(
+            select(Page).where(
+                Page.tenant_id == current_user.tenant_id,
+                Page.slug == page_data.slug
+            )
         )
-    
-    page = Page(**page_data.dict(), tenant_id=current_user.tenant_id)
-    await db.pages.insert_one(page.dict())
-    return page
+        existing_page = result.scalar_one_or_none()
+        if existing_page:
+            raise HTTPException(status_code=400, detail="Page with this slug already exists")
+        
+        if page_data.is_homepage:
+            await session.execute(
+                update(Page).where(
+                    Page.tenant_id == current_user.tenant_id,
+                    Page.is_homepage == True
+                ).values(is_homepage=False)
+            )
+        
+        page = Page(**page_data.dict(), tenant_id=current_user.tenant_id)
+        session.add(page)
+        await session.commit()
+        return page
 
 @api_router.get("/cms/pages/{page_id}", response_model=Page)
 async def get_page(
     page_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    page = await db.pages.find_one({
-        "id": page_id,
-        "tenant_id": current_user.tenant_id
-    })
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
-    return Page(**page)
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.tenant_id == current_user.tenant_id
+            )
+        )
+        page = result.scalar_one_or_none()
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        return page
 
 @api_router.put("/cms/pages/{page_id}", response_model=Page)
 async def update_page(
@@ -709,74 +756,106 @@ async def update_page(
     page_data: PageUpdate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    page = await db.pages.find_one({
-        "id": page_id,
-        "tenant_id": current_user.tenant_id
-    })
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select, update
+    from datetime import datetime
     
-    update_data = {k: v for k, v in page_data.dict().items() if v is not None}
-    update_data["updated_at"] = datetime.utcnow()
-    
-    await db.pages.update_one(
-        {"id": page_id},
-        {"$set": update_data}
-    )
-    
-    updated_page = await db.pages.find_one({"id": page_id})
-    return Page(**updated_page)
+    async with connection_manager.get_session() as session:
+        result = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.tenant_id == current_user.tenant_id
+            )
+        )
+        page = result.scalar_one_or_none()
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        
+        update_data = {k: v for k, v in page_data.dict().items() if v is not None}
+        update_data["updated_at"] = datetime.utcnow()
+        
+        await session.execute(
+            update(Page).where(Page.id == page_id).values(**update_data)
+        )
+        await session.commit()
+        
+        result = await session.execute(select(Page).where(Page.id == page_id))
+        updated_page = result.scalar_one()
+        return updated_page
 
 @api_router.delete("/cms/pages/{page_id}")
 async def delete_page(
     page_id: str,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    page = await db.pages.find_one({
-        "id": page_id,
-        "tenant_id": current_user.tenant_id
-    })
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select, delete
     
-    if page.get("is_homepage"):
-        raise HTTPException(status_code=400, detail="Cannot delete homepage")
-    
-    await db.pages.delete_one({"id": page_id})
-    return {"message": "Page deleted successfully"}
+    async with connection_manager.get_session() as session:
+        result = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.tenant_id == current_user.tenant_id
+            )
+        )
+        page = result.scalar_one_or_none()
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        
+        if page.is_homepage:
+            raise HTTPException(status_code=400, detail="Cannot delete homepage")
+        
+        await session.execute(delete(Page).where(Page.id == page_id))
+        await session.commit()
+        return {"message": "Page deleted successfully"}
 
 @api_router.get("/cms/templates", response_model=List[Template])
 async def get_templates(
     current_user: User = Depends(get_current_user)
 ):
-    # Get tenant to determine industry module
-    tenant = await db.tenants.find_one({"id": current_user.tenant_id})
+    from backend.models.postgresql_models import Template, Tenant
+    from sqlalchemy import select, or_
     
-    templates = await db.templates.find({
-        "$or": [
-            {"industry_module": tenant["industry_module"]},
-            {"industry_module": None}  # Universal templates
-        ]
-    }).to_list(1000)
-    
-    return [Template(**template) for template in templates]
+    async with connection_manager.get_session() as session:
+        tenant_result = await session.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+        tenant = tenant_result.scalar_one()
+        
+        result = await session.execute(
+            select(Template).where(
+                or_(
+                    Template.industry_module == tenant.industry_module,
+                    Template.industry_module == None
+                )
+            )
+        )
+        templates = result.scalars().all()
+        return templates
 
 # Form Builder Routes
 @api_router.get("/forms", response_model=List[Form])
 async def get_forms(
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    forms = await db.forms.find({"tenant_id": current_user.tenant_id}).to_list(1000)
-    return [Form(**form) for form in forms]
+    from backend.models.postgresql_models import Form
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(select(Form).where(Form.tenant_id == current_user.tenant_id))
+        forms = result.scalars().all()
+        return forms
 
 @api_router.post("/forms", response_model=Form)
 async def create_form(
     form_data: FormCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    form = Form(**form_data.dict(), tenant_id=current_user.tenant_id)
-    await db.forms.insert_one(form.dict())
-    return form
+    from backend.models.postgresql_models import Form
+    
+    async with connection_manager.get_session() as session:
+        form = Form(**form_data.dict(), tenant_id=current_user.tenant_id)
+        session.add(form)
+        await session.commit()
+        return form
 
 @api_router.post("/forms/{form_id}/submit")
 async def submit_form(
@@ -785,7 +864,12 @@ async def submit_form(
     request: Request
 ):
     # Get form by ID
-    form = await db.forms.find_one({"id": form_id, "is_active": True})
+    from backend.models.postgresql_models import Form
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(select(Form).where(Form.id == form_id, Form.is_active == True))
+        form = result.scalar_one_or_none()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     
@@ -810,38 +894,46 @@ async def submit_form(
     }
     
     # Check if lead already exists
-    existing_lead = await db.leads.find_one({
-        "tenant_id": form["tenant_id"],
-        "email": lead_data["email"]
-    })
+    from backend.models.postgresql_models import Lead
+    
+    existing_lead_result = await session.execute(
+        select(Lead).where(
+            Lead.tenant_id == form.tenant_id,
+            Lead.email == lead_data.get("email")
+        )
+    )
+    existing_lead = existing_lead_result.scalar_one_or_none()
     
     if existing_lead:
         # Update existing lead
-        await db.leads.update_one(
-            {"id": existing_lead["id"]},
-            {"$set": {
-                "updated_at": datetime.utcnow(),
-                "custom_fields": {**existing_lead.get("custom_fields", {}), **lead_data["custom_fields"]}
-            }}
+        from sqlalchemy import update
+        await session.execute(
+            update(Lead).where(Lead.id == existing_lead.id).values(
+                updated_at=datetime.utcnow(),
+                custom_fields={**(existing_lead.custom_fields or {}), **lead_data["custom_fields"]}
+            )
         )
-        lead_id = existing_lead["id"]
+        lead_id = existing_lead.id
     else:
         # Create new lead
-        lead = Lead(**lead_data)
-        await db.leads.insert_one(lead.dict())
-        lead_id = lead.id
+        lead_obj = Lead(**lead_data)
+        session.add(lead_obj)
+        lead_id = lead_obj.id
     
     # Store form submission
-    await db.form_submissions.insert_one({
-        "id": str(uuid.uuid4()),
-        "form_id": form_id,
-        "lead_id": lead_id,
-        "data": submission.data,
-        "source_url": submission.source_url,
-        "ip_address": request.client.host,
-        "user_agent": request.headers.get("user-agent"),
-        "created_at": datetime.utcnow()
-    })
+    from backend.models.postgresql_models import FormSubmission
+    submission_obj = FormSubmission(
+        id=str(uuid.uuid4()),
+        form_id=form_id,
+        lead_id=lead_id,
+        data=submission.data,
+        source_url=submission.source_url,
+        ip_address=request.client.host,
+        user_agent=request.headers.get("user-agent"),
+        created_at=datetime.utcnow()
+    )
+    session.add(submission_obj)
+    await session.commit()
     
     # TODO: Send notification emails to form.email_notifications
     
@@ -858,46 +950,57 @@ async def get_leads(
     skip: int = 0,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    # Use optimized database query
-    db_optimizer = await get_db_optimizer(db)
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select
     
-    query = {"tenant_id": current_user.tenant_id}
-    if status:
-        query["status"] = status
-    if assigned_to:
-        query["assigned_to"] = assigned_to
-    
-    options = {
-        "sort": [("created_at", -1)],
-        "limit": limit,
-        "skip": skip,
-        "tenant_id": current_user.tenant_id
-    }
-    
-    leads_data = await db_optimizer.optimize_query("leads", query, options)
-    return [Lead(**lead) for lead in leads_data]
+    async with connection_manager.get_session() as session:
+        db_optimizer = await get_db_optimizer(session)
+        
+        query_conditions = [Page.tenant_id == current_user.tenant_id]
+        if status:
+            query_conditions.append(Page.status == status)
+        
+        result = await session.execute(
+            select(Page).where(*query_conditions).offset(skip).limit(limit)
+        )
+        pages = result.scalars().all()
+        
+        await db_optimizer.log_query_performance("pages", "find", len(pages))
+        
+        return pages
 
 @api_router.post("/leads", response_model=Lead)
 async def create_lead(
     lead_data: LeadCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    lead = Lead(**lead_data.dict(), tenant_id=current_user.tenant_id)
-    await db.leads.insert_one(lead.dict())
-    return lead
+    from backend.models.postgresql_models import Lead
+    
+    async with connection_manager.get_session() as session:
+        lead = Lead(**lead_data.dict(), tenant_id=current_user.tenant_id)
+        session.add(lead)
+        await session.commit()
+        return lead
 
 @api_router.get("/leads/{lead_id}", response_model=Lead)
 async def get_lead(
     lead_id: str,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    lead = await db.leads.find_one({
-        "id": lead_id,
-        "tenant_id": current_user.tenant_id
-    })
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    return Lead(**lead)
+    from backend.models.postgresql_models import Lead
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(
+            select(Lead).where(
+                Lead.id == lead_id,
+                Lead.tenant_id == current_user.tenant_id
+            )
+        )
+        lead = result.scalar_one_or_none()
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        return lead
 
 @api_router.put("/leads/{lead_id}", response_model=Lead)
 async def update_lead(
@@ -905,10 +1008,17 @@ async def update_lead(
     lead_data: LeadUpdate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    lead = await db.leads.find_one({
-        "id": lead_id,
-        "tenant_id": current_user.tenant_id
-    })
+    from backend.models.postgresql_models import Lead
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(
+            select(Lead).where(
+                Lead.id == lead_id,
+                Lead.tenant_id == current_user.tenant_id
+            )
+        )
+        lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
@@ -922,12 +1032,15 @@ async def update_lead(
         elif update_data["status"] == LeadStatus.TOUR_COMPLETED:
             update_data["tour_completed_at"] = datetime.utcnow()
     
-    await db.leads.update_one(
-        {"id": lead_id},
-        {"$set": update_data}
-    )
-    
-    updated_lead = await db.leads.find_one({"id": lead_id})
+        from sqlalchemy import update
+        
+        await session.execute(
+            update(Lead).where(Lead.id == lead_id).values(**update_data)
+        )
+        await session.commit()
+        
+        result = await session.execute(select(Lead).where(Lead.id == lead_id))
+        updated_lead = result.scalar_one()
     return Lead(**updated_lead)
 
 # Tour Management Routes
@@ -947,86 +1060,121 @@ async def get_tour_slots(
         else:
             query["date"] = {"$lte": datetime.fromisoformat(date_to)}
     
-    slots = await db.tour_slots.find(query).sort("date", 1).to_list(1000)
-    return [TourSlot(**slot) for slot in slots]
+    from backend.models.postgresql_models import TourSlot
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        query_conditions = [TourSlot.tenant_id == current_user.tenant_id]
+        if date_from:
+            query_conditions.append(TourSlot.date >= datetime.fromisoformat(date_from))
+        if date_to:
+            query_conditions.append(TourSlot.date <= datetime.fromisoformat(date_to))
+        
+        result = await session.execute(
+            select(TourSlot).where(*query_conditions).order_by(TourSlot.date)
+        )
+        slots = result.scalars().all()
+        return slots
 
 @api_router.post("/tours/slots", response_model=TourSlot)
 async def create_tour_slot(
     slot_data: TourSlotCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    slot = TourSlot(**slot_data.dict(), tenant_id=current_user.tenant_id)
-    await db.tour_slots.insert_one(slot.dict())
-    return slot
+    from backend.models.postgresql_models import TourSlot
+    
+    async with connection_manager.get_session() as session:
+        slot = TourSlot(**slot_data.dict(), tenant_id=current_user.tenant_id)
+        session.add(slot)
+        await session.commit()
+        return slot
 
 @api_router.post("/tours/book")
 async def book_tour(tour_data: TourBooking):
-    # Get tour slot
-    slot = await db.tour_slots.find_one({
-        "id": tour_data.tour_slot_id,
-        "is_available": True
-    })
-    if not slot:
-        raise HTTPException(status_code=404, detail="Tour slot not available")
+    from backend.models.postgresql_models import TourSlot, Tour, Lead
+    from sqlalchemy import select, update
+    import uuid
+    from datetime import datetime
     
-    # Check if slot is already booked
-    existing_tours = await db.tours.find({
-        "tour_slot_id": tour_data.tour_slot_id,
-        "status": {"$ne": "cancelled"}
-    }).to_list(100)
-    
-    if len(existing_tours) >= slot["max_bookings"]:
-        raise HTTPException(status_code=400, detail="Tour slot is fully booked")
-    
-    # Create or find lead
-    lead_id = tour_data.lead_id
-    if not lead_id:
-        # Create new lead from tour booking
-        lead = Lead(
-            tenant_id=slot["tenant_id"],
-            first_name=tour_data.first_name,
-            last_name=tour_data.last_name,
-            email=tour_data.email,
-            phone=tour_data.phone,
-            company=tour_data.company,
-            status=LeadStatus.TOUR_SCHEDULED,
-            source="tour_booking",
-            notes=tour_data.notes,
-            tour_scheduled_at=slot["date"]
+    async with connection_manager.get_session() as session:
+        # Get tour slot
+        result = await session.execute(
+            select(TourSlot).where(
+                TourSlot.id == tour_data.tour_slot_id,
+                TourSlot.is_available == True
+            )
         )
-        await db.leads.insert_one(lead.dict())
-        lead_id = lead.id
-    else:
-        # Update existing lead
-        await db.leads.update_one(
-            {"id": lead_id},
-            {"$set": {
-                "status": LeadStatus.TOUR_SCHEDULED,
-                "tour_scheduled_at": slot["date"],
-                "updated_at": datetime.utcnow()
-            }}
+        slot = result.scalar_one_or_none()
+        if not slot:
+            raise HTTPException(status_code=404, detail="Tour slot not available")
+        
+        # Check if slot is already booked
+        existing_tours_result = await session.execute(
+            select(Tour).where(
+                Tour.tour_slot_id == tour_data.tour_slot_id,
+                Tour.status != "cancelled"
+            )
         )
-    
-    # Create tour booking
-    tour = Tour(
-        tenant_id=slot["tenant_id"],
-        lead_id=lead_id,
-        tour_slot_id=tour_data.tour_slot_id,
-        scheduled_at=slot["date"],
-        staff_user_id=slot["staff_user_id"]
-    )
-    await db.tours.insert_one(tour.dict())
-    
-    # TODO: Send confirmation email to lead and notification to staff
-    
-    return {"message": "Tour booked successfully", "tour_id": tour.id, "lead_id": lead_id}
+        existing_tours = existing_tours_result.scalars().all()
+        
+        if len(existing_tours) >= slot.max_bookings:
+            raise HTTPException(status_code=400, detail="Tour slot is fully booked")
+        
+        # Create or find lead
+        lead_id = tour_data.lead_id
+        if not lead_id:
+            # Create new lead from tour booking
+            lead = Lead(
+                tenant_id=slot.tenant_id,
+                first_name=tour_data.first_name,
+                last_name=tour_data.last_name,
+                email=tour_data.email,
+                phone=tour_data.phone,
+                company=tour_data.company,
+                status=LeadStatus.TOUR_SCHEDULED,
+                source="tour_booking",
+                notes=tour_data.notes,
+                tour_scheduled_at=slot.date
+            )
+            session.add(lead)
+            await session.flush()
+            lead_id = lead.id
+        else:
+            # Update existing lead
+            await session.execute(
+                update(Lead).where(Lead.id == lead_id).values(
+                    status=LeadStatus.TOUR_SCHEDULED,
+                    tour_scheduled_at=slot.date,
+                    updated_at=datetime.utcnow()
+                )
+            )
+        
+        # Create tour booking
+        tour = Tour(
+            tenant_id=slot.tenant_id,
+            lead_id=lead_id,
+            tour_slot_id=tour_data.tour_slot_id,
+            scheduled_at=slot.date,
+            staff_user_id=slot.staff_user_id
+        )
+        session.add(tour)
+        await session.commit()
+        
+        return {"message": "Tour booked successfully", "tour_id": tour.id, "lead_id": lead_id}
 
 @api_router.get("/tours", response_model=List[Tour])
 async def get_tours(
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    tours = await db.tours.find({"tenant_id": current_user.tenant_id}).sort("scheduled_at", 1).to_list(1000)
-    return [Tour(**tour) for tour in tours]
+    from backend.models.postgresql_models import Tour
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        result = await session.execute(
+            select(Tour).where(Tour.tenant_id == current_user.tenant_id).order_by(Tour.scheduled_at)
+        )
+        tours = result.scalars().all()
+        return tours
 
 # Dashboard and Analytics
 @api_router.get("/dashboard/stats")
@@ -1036,43 +1184,66 @@ async def get_dashboard_stats(
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     this_month = today.replace(day=1)
     
-    # Get stats
-    total_leads = await db.leads.count_documents({"tenant_id": current_user.tenant_id})
+    from backend.models.postgresql_models import Lead, Page, Form, Tour
+    from sqlalchemy import select, func
     
-    new_leads_this_month = await db.leads.count_documents({
-        "tenant_id": current_user.tenant_id,
-        "created_at": {"$gte": this_month}
-    })
-    
-    total_pages = await db.pages.count_documents({
-        "tenant_id": current_user.tenant_id,
-        "status": PageStatus.PUBLISHED
-    })
-    
-    total_forms = await db.forms.count_documents({
-        "tenant_id": current_user.tenant_id,
-        "is_active": True
-    })
-    
-    upcoming_tours = await db.tours.count_documents({
-        "tenant_id": current_user.tenant_id,
-        "scheduled_at": {"$gte": datetime.utcnow()},
-        "status": "scheduled"
-    })
-    
-    # Recent leads
-    recent_leads = await db.leads.find({
-        "tenant_id": current_user.tenant_id
-    }).sort("created_at", -1).limit(5).to_list(5)
-    
-    # Conversion stats
-    converted_leads = await db.leads.count_documents({
-        "tenant_id": current_user.tenant_id,
-        "status": LeadStatus.CONVERTED,
-        "created_at": {"$gte": this_month}
-    })
-    
-    conversion_rate = (converted_leads / new_leads_this_month * 100) if new_leads_this_month > 0 else 0
+    async with connection_manager.get_session() as session:
+        # Get stats
+        total_leads_result = await session.execute(select(func.count(Lead.id)).where(Lead.tenant_id == current_user.tenant_id))
+        total_leads = total_leads_result.scalar()
+        
+        new_leads_this_month_result = await session.execute(
+            select(func.count(Lead.id)).where(
+                Lead.tenant_id == current_user.tenant_id,
+                Lead.created_at >= this_month
+            )
+        )
+        new_leads_this_month = new_leads_this_month_result.scalar()
+        
+        total_pages_result = await session.execute(
+            select(func.count(Page.id)).where(
+                Page.tenant_id == current_user.tenant_id,
+                Page.status == PageStatus.PUBLISHED
+            )
+        )
+        total_pages = total_pages_result.scalar()
+        
+        total_forms_result = await session.execute(
+            select(func.count(Form.id)).where(
+                Form.tenant_id == current_user.tenant_id,
+                Form.is_active == True
+            )
+        )
+        total_forms = total_forms_result.scalar()
+        
+        upcoming_tours_result = await session.execute(
+            select(func.count(Tour.id)).where(
+                Tour.tenant_id == current_user.tenant_id,
+                Tour.scheduled_at >= datetime.utcnow(),
+                Tour.status == "scheduled"
+            )
+        )
+        upcoming_tours = upcoming_tours_result.scalar()
+        
+        # Recent leads
+        recent_leads_result = await session.execute(
+            select(Lead).where(Lead.tenant_id == current_user.tenant_id)
+            .order_by(Lead.created_at.desc())
+            .limit(5)
+        )
+        recent_leads = recent_leads_result.scalars().all()
+        
+        # Conversion stats
+        converted_leads_result = await session.execute(
+            select(func.count(Lead.id)).where(
+                Lead.tenant_id == current_user.tenant_id,
+                Lead.status == LeadStatus.CONVERTED,
+                Lead.created_at >= this_month
+            )
+        )
+        converted_leads = converted_leads_result.scalar()
+        
+        conversion_rate = (converted_leads / new_leads_this_month * 100) if new_leads_this_month > 0 else 0
     
     return {
         "total_leads": total_leads,
@@ -1083,12 +1254,12 @@ async def get_dashboard_stats(
         "conversion_rate": round(conversion_rate, 1),
         "recent_leads": [
             {
-                "id": lead["id"],
-                "name": f"{lead['first_name']} {lead['last_name']}",
-                "email": lead["email"],
-                "status": lead["status"],
-                "source": lead.get("source"),
-                "created_at": lead["created_at"].isoformat()
+                "id": lead.id,
+                "name": f"{lead.first_name} {lead.last_name}",
+                "email": lead.email,
+                "status": lead.status,
+                "source": lead.source,
+                "created_at": lead.created_at.isoformat()
             }
             for lead in recent_leads
         ]
@@ -1097,48 +1268,64 @@ async def get_dashboard_stats(
 # Public API routes (no auth required)
 @api_router.get("/public/{tenant_subdomain}/pages/{slug}")
 async def get_public_page(tenant_subdomain: str, slug: str):
-    # Find tenant
-    tenant = await db.tenants.find_one({"subdomain": tenant_subdomain})
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
+    from backend.models.postgresql_models import Tenant, Page
+    from sqlalchemy import select
     
-    # Get page
-    page = await db.pages.find_one({
-        "tenant_id": tenant["id"],
-        "slug": slug,
-        "status": PageStatus.PUBLISHED
-    })
-    
-    if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
-    
-    return {
-        "page": Page(**page),
-        "tenant": {
-            "name": tenant["name"],
-            "branding": tenant.get("branding", {}),
-            "industry_module": tenant["industry_module"]
+    async with connection_manager.get_session() as session:
+        # Find tenant
+        tenant_result = await session.execute(select(Tenant).where(Tenant.subdomain == tenant_subdomain))
+        tenant = tenant_result.scalar_one_or_none()
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        
+        # Get page
+        page_result = await session.execute(
+            select(Page).where(
+                Page.tenant_id == tenant.id,
+                Page.slug == slug,
+                Page.status == PageStatus.PUBLISHED
+            )
+        )
+        page = page_result.scalar_one_or_none()
+        
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        
+        return {
+            "page": page,
+            "tenant": {
+                "name": tenant.name,
+                "branding": tenant.branding or {},
+                "industry_module": tenant.industry_module
+            }
         }
-    }
 
 @api_router.get("/public/{tenant_subdomain}/forms/{form_id}")
 async def get_public_form(tenant_subdomain: str, form_id: str):
-    # Find tenant
-    tenant = await db.tenants.find_one({"subdomain": tenant_subdomain})
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
+    from backend.models.postgresql_models import Tenant, Form
+    from sqlalchemy import select
     
-    # Get form
-    form = await db.forms.find_one({
-        "id": form_id,
-        "tenant_id": tenant["id"],
-        "is_active": True
-    })
-    
-    if not form:
-        raise HTTPException(status_code=404, detail="Form not found")
-    
-    return Form(**form)
+    async with connection_manager.get_session() as session:
+        # Find tenant
+        tenant_result = await session.execute(select(Tenant).where(Tenant.subdomain == tenant_subdomain))
+        tenant = tenant_result.scalar_one_or_none()
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        
+        # Get form
+        form_result = await session.execute(
+            select(Form).where(
+                Form.id == form_id,
+                Form.tenant_id == tenant.id,
+                Form.is_active == True
+            )
+        )
+        form = form_result.scalar_one_or_none()
+        
+        if not form:
+            raise HTTPException(status_code=404, detail="Form not found")
+        
+        return form
 
 # Add new core platform endpoints BEFORE including router
 @api_router.get("/platform/experience")
@@ -1206,13 +1393,20 @@ async def save_page_builder_data(
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
     """Save page builder configuration"""
-    cms_engine = CoworkingCMSEngine(db)
+    cms_engine = CoworkingCMSEngine(connection_manager)
     
     # Validate page exists and belongs to tenant
-    page = await db.pages.find_one({
-        "id": page_id,
-        "tenant_id": current_user.tenant_id
-    })
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        page_result = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.tenant_id == current_user.tenant_id
+            )
+        )
+        page = page_result.scalar_one_or_none()
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
     
@@ -1233,13 +1427,20 @@ async def get_page_builder_data(
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
     """Get page builder configuration"""
-    cms_engine = CoworkingCMSEngine(db)
+    cms_engine = CoworkingCMSEngine(connection_manager)
     
     # Validate page exists and belongs to tenant
-    page = await db.pages.find_one({
-        "id": page_id,
-        "tenant_id": current_user.tenant_id
-    })
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        page_result = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.tenant_id == current_user.tenant_id
+            )
+        )
+        page = page_result.scalar_one_or_none()
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
     
@@ -1265,13 +1466,20 @@ async def render_page_with_blocks(
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
     """Render page with content blocks"""
-    cms_engine = CoworkingCMSEngine(db)
+    cms_engine = CoworkingCMSEngine(connection_manager)
     
     # Validate page exists and belongs to tenant
-    page = await db.pages.find_one({
-        "id": page_id,
-        "tenant_id": current_user.tenant_id
-    })
+    from backend.models.postgresql_models import Page
+    from sqlalchemy import select
+    
+    async with connection_manager.get_session() as session:
+        page_result = await session.execute(
+            select(Page).where(
+                Page.id == page_id,
+                Page.tenant_id == current_user.tenant_id
+            )
+        )
+        page = page_result.scalar_one_or_none()
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
     
@@ -1428,8 +1636,9 @@ async def get_database_stats(
     current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN]))
 ):
     """Get database performance statistics"""
-    db_optimizer = await get_db_optimizer(db)
-    return await db_optimizer.get_performance_metrics()
+    async with connection_manager.get_session() as session:
+        db_optimizer = await get_db_optimizer(session)
+        return await db_optimizer.get_performance_metrics()
 
 @api_router.post("/performance/database/analyze/{collection}")
 async def analyze_collection_performance(
@@ -1437,16 +1646,18 @@ async def analyze_collection_performance(
     current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN]))
 ):
     """Analyze performance of a specific collection"""
-    db_optimizer = await get_db_optimizer(db)
-    return await db_optimizer.analyze_collection_performance(collection)
+    async with connection_manager.get_session() as session:
+        db_optimizer = await get_db_optimizer(session)
+        return await db_optimizer.analyze_collection_performance(collection)
 
 @api_router.post("/performance/database/cleanup")
 async def cleanup_old_data(
     current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN]))
 ):
     """Clean up old data to maintain performance"""
-    db_optimizer = await get_db_optimizer(db)
-    return await db_optimizer.cleanup_old_data()
+    async with connection_manager.get_session() as session:
+        db_optimizer = await get_db_optimizer(session)
+        return await db_optimizer.cleanup_old_data()
 
 # Health check endpoint with performance metrics
 @api_router.get("/health")
@@ -1454,7 +1665,11 @@ async def health_check():
     """Enhanced health check with performance metrics"""
     try:
         # Check database connection
-        await db.command("ping")
+        from database.config.connection_pool import PostgreSQLConnectionManager
+        connection_manager = PostgreSQLConnectionManager()
+        health_result = await connection_manager.health_check()
+        if health_result["status"] != "healthy":
+            raise Exception(f"Database unhealthy: {health_result.get('error', 'Unknown error')}")
         
         # Get basic performance metrics
         monitor = await get_performance_monitor()
@@ -1486,8 +1701,9 @@ async def startup_event():
     """Initialize performance monitoring and optimizations"""
     try:
         # Initialize database optimizer
-        db_optimizer = await get_db_optimizer(db)
-        logger.info("✅ Database optimizer initialized")
+        async with connection_manager.get_session() as session:
+            db_optimizer = await get_db_optimizer(session)
+            logger.info("✅ Database optimizer initialized")
         
         # Start performance monitoring
         monitor = await get_performance_monitor()

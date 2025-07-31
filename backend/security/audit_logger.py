@@ -6,8 +6,9 @@ import json
 import hashlib
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, insert, update, delete
+import uuid
 import logging
 from enum import Enum
 
@@ -37,9 +38,8 @@ class AuditSeverity(Enum):
     CRITICAL = "critical"
 
 class AuditLogger:
-    def __init__(self, db: AsyncIOMotorDatabase):
-        self.db = db
-        self.collection = db.audit_logs
+    def __init__(self, session: AsyncSession):
+        self.session = session
         
     async def log_event(
         self,
@@ -60,7 +60,7 @@ class AuditLogger:
         
         # Create base audit record
         audit_record = {
-            "_id": ObjectId(),
+            "id": str(uuid.uuid4()),
             "event_type": event_type.value,
             "tenant_id": tenant_id,
             "user_id": user_id,
@@ -79,15 +79,18 @@ class AuditLogger:
         audit_record["integrity_hash"] = self._calculate_integrity_hash(audit_record)
         
         try:
-            # Insert audit record
-            result = await self.collection.insert_one(audit_record)
+            # Insert audit record using PostgreSQL
+            from backend.models.postgresql_models import AuditLog
+            audit_log = AuditLog(**audit_record)
+            self.session.add(audit_log)
+            await self.session.commit()
             
             # Check for security violations that need immediate attention
             if severity in [AuditSeverity.HIGH, AuditSeverity.CRITICAL]:
                 await self._trigger_security_alert(audit_record)
             
             logger.info(f"Audit event logged: {event_type.value} for tenant {tenant_id}")
-            return str(result.inserted_id)
+            return audit_record["id"]
             
         except Exception as e:
             logger.error(f"Failed to log audit event: {e}")
@@ -98,7 +101,7 @@ class AuditLogger:
         """Calculate tamper-proof hash for audit record"""
         # Remove fields that shouldn't be part of the hash
         hash_data = {k: v for k, v in record.items() 
-                    if k not in ['_id', 'integrity_hash']}
+                    if k not in ['id', 'integrity_hash']}
         
         # Convert to deterministic JSON string
         json_str = json.dumps(hash_data, sort_keys=True, default=str)
@@ -160,12 +163,31 @@ class AuditLogger:
     async def verify_integrity(self, audit_id: str) -> bool:
         """Verify the integrity of an audit record"""
         try:
-            record = await self.collection.find_one({"_id": ObjectId(audit_id)})
+            from backend.models.postgresql_models import AuditLog
+            result = await self.session.execute(select(AuditLog).where(AuditLog.id == audit_id))
+            record = result.scalar_one_or_none()
             if not record:
                 return False
             
-            stored_hash = record.pop("integrity_hash", None)
-            calculated_hash = self._calculate_integrity_hash(record)
+            # Convert record to dict for hash calculation
+            record_dict = {
+                "id": record.id,
+                "event_type": record.event_type,
+                "tenant_id": record.tenant_id,
+                "user_id": record.user_id,
+                "resource_id": record.resource_id,
+                "resource_type": record.resource_type,
+                "timestamp": record.timestamp,
+                "severity": record.severity,
+                "ip_address": record.ip_address,
+                "user_agent": record.user_agent,
+                "session_id": record.session_id,
+                "details": record.details,
+                "compliance_flags": record.compliance_flags
+            }
+            
+            stored_hash = record.integrity_hash
+            calculated_hash = self._calculate_integrity_hash(record_dict)
             
             return stored_hash == calculated_hash
             
@@ -204,16 +226,54 @@ class AuditLogger:
             query["user_id"] = user_id
         
         try:
-            cursor = self.collection.find(query).sort("timestamp", -1).limit(limit)
-            records = await cursor.to_list(length=limit)
+            from backend.models.postgresql_models import AuditLog
             
-            # Convert ObjectId to string for JSON serialization
+            query_conditions = [AuditLog.tenant_id == tenant_id]
+            
+            # Date range filter
+            if start_date:
+                query_conditions.append(AuditLog.timestamp >= start_date)
+            if end_date:
+                query_conditions.append(AuditLog.timestamp <= end_date)
+            
+            # Event type filter
+            if event_types:
+                event_type_values = [et.value for et in event_types]
+                query_conditions.append(AuditLog.event_type.in_(event_type_values))
+            
+            # User filter
+            if user_id:
+                query_conditions.append(AuditLog.user_id == user_id)
+            
+            result = await self.session.execute(
+                select(AuditLog).where(*query_conditions)
+                .order_by(AuditLog.timestamp.desc())
+                .limit(limit)
+            )
+            records = result.scalars().all()
+            
+            # Convert to dict format for JSON serialization
+            record_dicts = []
             for record in records:
-                record["_id"] = str(record["_id"])
-                if isinstance(record["timestamp"], datetime):
-                    record["timestamp"] = record["timestamp"].isoformat()
+                record_dict = {
+                    "id": record.id,
+                    "event_type": record.event_type,
+                    "tenant_id": record.tenant_id,
+                    "user_id": record.user_id,
+                    "resource_id": record.resource_id,
+                    "resource_type": record.resource_type,
+                    "timestamp": record.timestamp.isoformat() if record.timestamp else None,
+                    "severity": record.severity,
+                    "ip_address": record.ip_address,
+                    "user_agent": record.user_agent,
+                    "session_id": record.session_id,
+                    "details": record.details,
+                    "compliance_flags": record.compliance_flags,
+                    "integrity_hash": record.integrity_hash
+                }
+                record_dicts.append(record_dict)
             
-            return records
+            return record_dicts
             
         except Exception as e:
             logger.error(f"Failed to retrieve audit trail: {e}")
@@ -235,9 +295,20 @@ class AuditLogger:
         }
         
         try:
-            # Get all relevant audit records
-            cursor = self.collection.find(query).sort("timestamp", 1)
-            records = await cursor.to_list(length=None)
+            # Get all relevant audit records using PostgreSQL
+            from backend.models.postgresql_models import AuditLog
+            
+            query_conditions = [
+                AuditLog.tenant_id == tenant_id,
+                AuditLog.timestamp >= start_date,
+                AuditLog.timestamp <= end_date,
+                AuditLog.compliance_flags.contains([compliance_framework])
+            ]
+            
+            result = await self.session.execute(
+                select(AuditLog).where(*query_conditions).order_by(AuditLog.timestamp)
+            )
+            records = result.scalars().all()
             
             # Generate report statistics
             report = {
@@ -257,16 +328,16 @@ class AuditLogger:
             
             # Analyze events
             for record in records:
-                event_type = record["event_type"]
+                event_type = record.event_type
                 report["event_breakdown"][event_type] = report["event_breakdown"].get(event_type, 0) + 1
                 
-                if record["severity"] in ["high", "critical"]:
+                if record.severity in ["high", "critical"]:
                     report["security_incidents"] += 1
                     report["high_risk_events"].append({
-                        "timestamp": record["timestamp"].isoformat(),
+                        "timestamp": record.timestamp.isoformat(),
                         "event_type": event_type,
-                        "severity": record["severity"],
-                        "details": record["details"]
+                        "severity": record.severity,
+                        "details": record.details
                     })
                 
                 if event_type in ["data_export", "user_deleted"]:

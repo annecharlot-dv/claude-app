@@ -6,6 +6,8 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
 from kernels.base_kernel import BaseKernel
+from backend.models.postgresql_models import Invoice, LineItem, Transaction, Subscription, Product, Payment, User
+from sqlalchemy import select, update, and_
 
 
 class FinancialKernel(BaseKernel):
@@ -13,35 +15,40 @@ class FinancialKernel(BaseKernel):
     
     async def _initialize_kernel(self):
         """Initialize financial kernel"""
-        # Ensure indexes exist
-        await self.db.invoices.create_index([("tenant_id", 1), ("status", 1)])
-        await self.db.line_items.create_index([("tenant_id", 1), ("invoice_id", 1)])
-        await self.db.transactions.create_index([("tenant_id", 1), ("transaction_date", -1)])
-        await self.db.subscriptions.create_index([("tenant_id", 1), ("customer_id", 1)])
-        await self.db.products.create_index([("tenant_id", 1), ("is_active", 1)])
+        pass
     
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        user = await self.db.users.find_one({"id": user_id, "tenant_id": tenant_id})
-        return user is not None
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(and_(User.id == user_id, User.tenant_id == tenant_id))
+            )
+            user = result.scalar_one_or_none()
+            return user is not None
     
     # Product/Service Management
     async def create_product(self, tenant_id: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new product/service"""
-        product_doc = {
-            **product_data,
-            "tenant_id": tenant_id,
-            "is_active": True,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.products.insert_one(product_doc)
-        return product_doc
+        async with self.connection_manager.get_session() as session:
+            product_doc = {
+                **product_data,
+                "tenant_id": tenant_id,
+                "is_active": True,
+                "created_at": datetime.utcnow()
+            }
+            product = Product(**product_doc)
+            session.add(product)
+            await session.commit()
+            return product_doc
     
     async def get_products(self, tenant_id: str, is_active: bool = True) -> List[Dict[str, Any]]:
         """Get products for tenant"""
-        query = {"tenant_id": tenant_id, "is_active": is_active}
-        products = await self.db.products.find(query).to_list(1000)
-        return products
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Product).where(and_(Product.tenant_id == tenant_id, Product.is_active == is_active))
+            )
+            products = result.scalars().all()
+            return [product.__dict__ for product in products]
     
     # Invoice Management
     async def create_invoice(self, tenant_id: str, customer_id: str, line_items: List[Dict[str, Any]], 
@@ -65,19 +72,25 @@ class FinancialKernel(BaseKernel):
             "updated_at": datetime.utcnow()
         }
         
-        await self.db.invoices.insert_one(invoice_doc)
-        
-        # Create line items
-        for item in line_items:
-            line_item_doc = {
-                **item,
-                "id": f"li_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{len(line_items)}",
-                "tenant_id": tenant_id,
-                "invoice_id": invoice_doc["id"],
-                "line_total": float(Decimal(str(item["quantity"])) * Decimal(str(item["unit_price"]))),
-                "created_at": datetime.utcnow()
-            }
-            await self.db.line_items.insert_one(line_item_doc)
+        async with self.connection_manager.get_session() as session:
+            invoice = Invoice(**invoice_doc)
+            session.add(invoice)
+            await session.flush()
+            
+            # Create line items
+            for item in line_items:
+                line_item_doc = {
+                    **item,
+                    "id": f"li_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{len(line_items)}",
+                    "tenant_id": tenant_id,
+                    "invoice_id": invoice_doc["id"],
+                    "line_total": float(Decimal(str(item["quantity"])) * Decimal(str(item["unit_price"]))),
+                    "created_at": datetime.utcnow()
+                }
+                line_item = LineItem(**line_item_doc)
+                session.add(line_item)
+            
+            await session.commit()
         
         return invoice_doc
     
@@ -88,18 +101,25 @@ class FinancialKernel(BaseKernel):
     
     async def get_invoices(self, tenant_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Get invoices for tenant"""
-        query = {"tenant_id": tenant_id}
-        if filters:
-            query.update(filters)
-        
-        invoices = await self.db.invoices.find(query).sort("created_at", -1).to_list(1000)
-        
-        # Attach line items to each invoice
-        for invoice in invoices:
-            line_items = await self.db.line_items.find({"invoice_id": invoice["id"]}).to_list(100)
-            invoice["line_items"] = line_items
-        
-        return invoices
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Invoice).where(Invoice.tenant_id == tenant_id).order_by(Invoice.created_at.desc())
+            )
+            invoices = result.scalars().all()
+            
+            invoice_list = []
+            for invoice in invoices:
+                invoice_dict = invoice.__dict__.copy()
+                
+                line_items_result = await session.execute(
+                    select(LineItem).where(LineItem.invoice_id == invoice.id)
+                )
+                line_items = line_items_result.scalars().all()
+                invoice_dict["line_items"] = [item.__dict__ for item in line_items]
+                
+                invoice_list.append(invoice_dict)
+            
+            return invoice_list
     
     async def update_invoice_status(self, invoice_id: str, status: str) -> bool:
         """Update invoice status"""
@@ -107,11 +127,15 @@ class FinancialKernel(BaseKernel):
         if status not in valid_statuses:
             raise ValueError(f"Invalid status. Must be one of: {valid_statuses}")
         
-        result = await self.db.invoices.update_one(
-            {"id": invoice_id},
-            {"$set": {"status": status, "updated_at": datetime.utcnow()}}
-        )
-        return result.modified_count > 0
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                update(Invoice).where(Invoice.id == invoice_id).values(
+                    status=status,
+                    updated_at=datetime.utcnow()
+                )
+            )
+            await session.commit()
+            return result.rowcount > 0
     
     # Transaction Management
     async def create_transaction(self, tenant_id: str, transaction_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -122,8 +146,11 @@ class FinancialKernel(BaseKernel):
             "transaction_date": transaction_data.get("transaction_date", datetime.utcnow()),
             "created_at": datetime.utcnow()
         }
-        await self.db.transactions.insert_one(transaction_doc)
-        return transaction_doc
+        async with self.connection_manager.get_session() as session:
+            transaction = Transaction(**transaction_doc)
+            session.add(transaction)
+            await session.commit()
+            return transaction_doc
     
     async def get_transactions(self, tenant_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Get transactions for tenant"""

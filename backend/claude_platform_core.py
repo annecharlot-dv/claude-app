@@ -2,9 +2,9 @@
 Claude Platform Core - Integrates kernels with modules for complete experience orchestration
 """
 from typing import Dict, Any, Optional, List
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from sqlalchemy.ext.asyncio import AsyncSession
 import os
-from bson import ObjectId
+import uuid
 
 from kernels import (
     IdentityKernel, BookingKernel, FinancialKernel, 
@@ -15,14 +15,14 @@ from modules import BaseModule
 from modules.module_registry import load_tenant_module
 
 
-def convert_objectid_to_str(obj):
-    """Convert MongoDB ObjectId to string recursively"""
-    if isinstance(obj, ObjectId):
+def convert_uuid_to_str(obj):
+    """Convert UUID to string recursively"""
+    if isinstance(obj, uuid.UUID):
         return str(obj)
     elif isinstance(obj, dict):
-        return {key: convert_objectid_to_str(value) for key, value in obj.items()}
+        return {key: convert_uuid_to_str(value) for key, value in obj.items()}
     elif isinstance(obj, list):
-        return [convert_objectid_to_str(item) for item in obj]
+        return [convert_uuid_to_str(item) for item in obj]
     else:
         return obj
 
@@ -30,8 +30,8 @@ def convert_objectid_to_str(obj):
 class ClaudePlatformCore:
     """Core platform that orchestrates kernels and modules"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
-        self.db = db
+    def __init__(self, session: AsyncSession):
+        self.session = session
         self.kernels = {}
         self.active_modules = {}  # tenant_id -> module instance
         self._initialize_kernels()
@@ -41,12 +41,12 @@ class ClaudePlatformCore:
         secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
         
         self.kernels = {
-            'identity': IdentityKernel(self.db, secret_key),
-            'booking': BookingKernel(self.db),
-            'financial': FinancialKernel(self.db),
-            'cms': CMSKernel(self.db),
-            'communication': CommunicationKernel(self.db),
-            'lead': LeadKernel(self.db)
+            'identity': IdentityKernel(self.session, secret_key),
+            'booking': BookingKernel(self.session),
+            'financial': FinancialKernel(self.session),
+            'cms': CMSKernel(self.session),
+            'communication': CommunicationKernel(self.session),
+            'lead': LeadKernel(self.session)
         }
     
     async def initialize(self):
@@ -61,7 +61,11 @@ class ClaudePlatformCore:
             return self.active_modules[tenant_id]
         
         # Get tenant data
-        tenant_data = await self.db.tenants.find_one({"id": tenant_id})
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import select
+        
+        result = await self.session.execute(select(Tenant).where(Tenant.id == tenant_id))
+        tenant_data = result.scalar_one_or_none()
         if not tenant_data:
             raise ValueError(f"Tenant {tenant_id} not found")
         
@@ -138,9 +142,9 @@ class ClaudePlatformCore:
         user = await identity_kernel.get_user_by_id(user_id)
         tenant = await identity_kernel.get_tenant_by_id(tenant_id)
         
-        # Convert ObjectIds to strings to avoid serialization issues
-        user = convert_objectid_to_str(user) if user else {}
-        tenant = convert_objectid_to_str(tenant) if tenant else {}
+        # Convert UUIDs to strings to avoid serialization issues
+        user = convert_uuid_to_str(user) if user else {}
+        tenant = convert_uuid_to_str(tenant) if tenant else {}
         
         # Get metrics based on module configuration
         metrics = {}
@@ -148,25 +152,38 @@ class ClaudePlatformCore:
             metric_name = metric_config["name"]
             
             # Calculate metric based on type and name
+            from backend.models.postgresql_models import User, Booking, Page, Lead
+            from sqlalchemy import select, func
+            
             if metric_name == "active_users" or metric_name == "active_members":
-                metrics[metric_name] = await self.db.users.count_documents({
-                    "tenant_id": tenant_id,
-                    "is_active": True
-                })
+                result = await self.session.execute(
+                    select(func.count(User.id)).where(
+                        User.tenant_id == tenant_id,
+                        User.is_active == True
+                    )
+                )
+                metrics[metric_name] = result.scalar()
             elif metric_name == "total_bookings" or metric_name == "active_bookings":
-                metrics[metric_name] = await self.db.bookings.count_documents({
-                    "tenant_id": tenant_id,
-                    "status": "confirmed"
-                })
+                result = await self.session.execute(
+                    select(func.count(Booking.id)).where(
+                        Booking.tenant_id == tenant_id,
+                        Booking.status == "confirmed"
+                    )
+                )
+                metrics[metric_name] = result.scalar()
             elif metric_name == "total_pages":
-                metrics[metric_name] = await self.db.pages.count_documents({
-                    "tenant_id": tenant_id,
-                    "status": "published"
-                })
+                result = await self.session.execute(
+                    select(func.count(Page.id)).where(
+                        Page.tenant_id == tenant_id,
+                        Page.status == "published"
+                    )
+                )
+                metrics[metric_name] = result.scalar()
             elif metric_name == "total_leads" or metric_name == "new_leads":
-                metrics[metric_name] = await self.db.leads.count_documents({
-                    "tenant_id": tenant_id
-                })
+                result = await self.session.execute(
+                    select(func.count(Lead.id)).where(Lead.tenant_id == tenant_id)
+                )
+                metrics[metric_name] = result.scalar()
             # Add more metric calculations as needed
         
         return {
@@ -183,11 +200,19 @@ class ClaudePlatformCore:
         for name, kernel in self.kernels.items():
             kernel_health[name] = await kernel.get_kernel_health()
         
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import select, func
+        
+        result = await self.session.execute(
+            select(func.count(Tenant.id)).where(Tenant.is_active == True)
+        )
+        total_tenants = result.scalar()
+        
         return {
             "platform_status": "healthy",
             "kernels": kernel_health,
             "active_modules": len(self.active_modules),
-            "total_tenants": await self.db.tenants.count_documents({"is_active": True})
+            "total_tenants": total_tenants
         }
     
     def get_kernel(self, kernel_name: str):
@@ -205,18 +230,18 @@ class ClaudePlatformCore:
 platform_core = None
 
 
-async def get_platform_core(db: AsyncIOMotorDatabase) -> ClaudePlatformCore:
+async def get_platform_core(session: AsyncSession) -> ClaudePlatformCore:
     """Get or create the global platform core instance"""
     global platform_core
     if platform_core is None:
-        platform_core = ClaudePlatformCore(db)
+        platform_core = ClaudePlatformCore(session)
         await platform_core.initialize()
     return platform_core
 
 
-async def initialize_platform(db: AsyncIOMotorDatabase) -> ClaudePlatformCore:
+async def initialize_platform(session: AsyncSession) -> ClaudePlatformCore:
     """Initialize the Claude Platform"""
-    core = ClaudePlatformCore(db)
+    core = ClaudePlatformCore(session)
     await core.initialize()
     
     global platform_core

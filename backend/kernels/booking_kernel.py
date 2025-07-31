@@ -5,6 +5,8 @@ Universal scheduling engine for any type of resource
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from kernels.base_kernel import BaseKernel
+from backend.models.postgresql_models import User, Booking, Resource, AvailabilitySchedule
+from sqlalchemy import select, update, delete, func
 
 
 class BookingKernel(BaseKernel):
@@ -12,36 +14,41 @@ class BookingKernel(BaseKernel):
     
     async def _initialize_kernel(self):
         """Initialize booking kernel"""
-        # Ensure indexes exist
-        await self.db.resources.create_index([("tenant_id", 1), ("is_active", 1)])
-        await self.db.bookings.create_index([("tenant_id", 1), ("resource_id", 1), ("start_time", 1)])
-        await self.db.availability_schedules.create_index([("resource_id", 1), ("day_of_week", 1)])
+        pass
     
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        user = await self.db.users.find_one({"id": user_id, "tenant_id": tenant_id})
-        return user is not None
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(User.id == user_id, User.tenant_id == tenant_id)
+            )
+            user = result.scalar_one_or_none()
+            return user is not None
     
     # Resource Management
     async def create_resource(self, tenant_id: str, resource_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new bookable resource"""
-        resource_doc = {
-            **resource_data,
-            "tenant_id": tenant_id,
-            "is_active": True,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.resources.insert_one(resource_doc)
-        return resource_doc
+        async with self.connection_manager.get_session() as session:
+            resource_data.update({
+                "tenant_id": tenant_id,
+                "is_active": True,
+                "created_at": datetime.utcnow()
+            })
+            resource_obj = Resource(**resource_data)
+            session.add(resource_obj)
+            await session.commit()
+            return resource_data
     
     async def get_resources(self, tenant_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Get resources for tenant with optional filters"""
-        query = {"tenant_id": tenant_id, "is_active": True}
-        if filters:
-            query.update(filters)
-        
-        resources = await self.db.resources.find(query).to_list(1000)
-        return resources
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [Resource.tenant_id == tenant_id, Resource.is_active == True]
+            
+            result = await session.execute(
+                select(Resource).where(*query_conditions)
+            )
+            resources = result.scalars().all()
+            return [resource.__dict__ for resource in resources]
     
     async def set_resource_availability(self, resource_id: str, availability_schedule: List[Dict[str, Any]]):
         """Set availability schedule for a resource"""

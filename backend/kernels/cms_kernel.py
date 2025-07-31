@@ -5,6 +5,8 @@ Universal content management and website building engine
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from kernels.base_kernel import BaseKernel
+from backend.models.postgresql_models import Page, Template, Widget, User
+from sqlalchemy import select, update, delete
 
 
 class CMSKernel(BaseKernel):
@@ -12,88 +14,118 @@ class CMSKernel(BaseKernel):
     
     async def _initialize_kernel(self):
         """Initialize CMS kernel"""
-        # Ensure indexes exist
-        await self.db.pages.create_index([("tenant_id", 1), ("slug", 1)], unique=True)
-        await self.db.templates.create_index("industry_module")
-        await self.db.widgets.create_index([("tenant_id", 1), ("type", 1)])
-        await self.db.media_library.create_index([("tenant_id", 1), ("file_type", 1)])
+        pass
     
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        user = await self.db.users.find_one({"id": user_id, "tenant_id": tenant_id})
-        return user is not None
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(User.id == user_id, User.tenant_id == tenant_id)
+            )
+            user = result.scalar_one_or_none()
+            return user is not None
     
     # Page Management
     async def create_page(self, tenant_id: str, page_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new page"""
-        # Check slug uniqueness
-        existing_page = await self.db.pages.find_one({
-            "tenant_id": tenant_id,
-            "slug": page_data["slug"]
-        })
-        if existing_page:
-            raise ValueError(f"Page with slug '{page_data['slug']}' already exists")
-        
-        # Handle homepage setting
-        if page_data.get("is_homepage"):
-            await self.db.pages.update_many(
-                {"tenant_id": tenant_id, "is_homepage": True},
-                {"$set": {"is_homepage": False}}
+        async with self.connection_manager.get_session() as session:
+            # Check slug uniqueness
+            result = await session.execute(
+                select(Page).where(
+                    Page.tenant_id == tenant_id,
+                    Page.slug == page_data["slug"]
+                )
             )
-        
-        page_doc = {
-            **page_data,
-            "tenant_id": tenant_id,
-            "status": page_data.get("status", "draft"),
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
-        
-        await self.db.pages.insert_one(page_doc)
-        return page_doc
+            existing_page = result.scalar_one_or_none()
+            if existing_page:
+                raise ValueError(f"Page with slug '{page_data['slug']}' already exists")
+            
+            # Handle homepage setting
+            if page_data.get("is_homepage"):
+                await session.execute(
+                    update(Page).where(
+                        Page.tenant_id == tenant_id,
+                        Page.is_homepage == True
+                    ).values(is_homepage=False)
+                )
+            
+            page_data.update({
+                "tenant_id": tenant_id,
+                "status": page_data.get("status", "draft"),
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            })
+            
+            page_obj = Page(**page_data)
+            session.add(page_obj)
+            await session.commit()
+            return page_data
     
     async def get_pages(self, tenant_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Get pages for tenant"""
-        query = {"tenant_id": tenant_id}
-        if filters:
-            query.update(filters)
-        
-        pages = await self.db.pages.find(query).sort("created_at", -1).to_list(1000)
-        return pages
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [Page.tenant_id == tenant_id]
+            
+            if filters:
+                for key, value in filters.items():
+                    if hasattr(Page, key):
+                        query_conditions.append(getattr(Page, key) == value)
+            
+            result = await session.execute(
+                select(Page).where(*query_conditions).order_by(Page.created_at.desc())
+            )
+            pages = result.scalars().all()
+            return [page.__dict__ for page in pages]
     
     async def get_page_by_slug(self, tenant_id: str, slug: str) -> Optional[Dict[str, Any]]:
         """Get page by slug"""
-        return await self.db.pages.find_one({
-            "tenant_id": tenant_id,
-            "slug": slug
-        })
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Page).where(Page.tenant_id == tenant_id, Page.slug == slug)
+            )
+            page = result.scalar_one_or_none()
+            return page.__dict__ if page else None
     
     async def update_page(self, page_id: str, tenant_id: str, update_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update page"""
-        update_data["updated_at"] = datetime.utcnow()
-        
-        result = await self.db.pages.update_one(
-            {"id": page_id, "tenant_id": tenant_id},
-            {"$set": update_data}
-        )
-        
-        if result.modified_count == 0:
-            raise ValueError("Page not found or not updated")
-        
-        return await self.db.pages.find_one({"id": page_id})
+        async with self.connection_manager.get_session() as session:
+            update_data["updated_at"] = datetime.utcnow()
+            
+            result = await session.execute(
+                update(Page).where(
+                    Page.id == page_id, 
+                    Page.tenant_id == tenant_id
+                ).values(**update_data)
+            )
+            
+            if result.rowcount == 0:
+                raise ValueError("Page not found or not updated")
+            
+            await session.commit()
+            
+            result = await session.execute(select(Page).where(Page.id == page_id))
+            page = result.scalar_one_or_none()
+            return page.__dict__ if page else None
     
     async def delete_page(self, page_id: str, tenant_id: str) -> bool:
         """Delete page"""
-        # Check if it's homepage
-        page = await self.db.pages.find_one({"id": page_id, "tenant_id": tenant_id})
-        if not page:
-            return False
-        
-        if page.get("is_homepage"):
-            raise ValueError("Cannot delete homepage")
-        
-        result = await self.db.pages.delete_one({"id": page_id, "tenant_id": tenant_id})
-        return result.deleted_count > 0
+        async with self.connection_manager.get_session() as session:
+            # Check if it's homepage
+            result = await session.execute(
+                select(Page).where(Page.id == page_id, Page.tenant_id == tenant_id)
+            )
+            page = result.scalar_one_or_none()
+            if not page:
+                return False
+            
+            if page.is_homepage:
+                raise ValueError("Cannot delete homepage")
+            
+            result = await session.execute(
+                delete(Page).where(Page.id == page_id, Page.tenant_id == tenant_id)
+            )
+            await session.commit()
+            return result.rowcount > 0
     
     # Template Management
     async def get_templates(self, industry_module: Optional[str] = None) -> List[Dict[str, Any]]:

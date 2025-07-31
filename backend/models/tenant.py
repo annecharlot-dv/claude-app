@@ -3,7 +3,7 @@ Tenant Data Model and Management
 Implements comprehensive multi-tenant data structures and operations
 """
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel, Field, validator
 from enum import Enum
 import uuid
@@ -133,69 +133,92 @@ class TenantModel(BaseModel):
         return v
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for MongoDB storage"""
+        """Convert to dictionary for PostgreSQL storage"""
         return self.dict()
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TenantModel':
-        """Create from dictionary (MongoDB document)"""
+        """Create from dictionary (PostgreSQL record)"""
         return cls(**data)
 
 
 class TenantRepository:
     """Repository for tenant data operations"""
     
-    def __init__(self, db):
-        self.db = db
-        self.collection = db.tenants
+    def __init__(self, connection_manager):
+        self.connection_manager = connection_manager
     
     async def initialize(self):
-        """Initialize tenant collection with indexes"""
-        await self.collection.create_index("subdomain", unique=True)
-        await self.collection.create_index("billing_email")
-        await self.collection.create_index("status")
-        await self.collection.create_index("industry")
-        await self.collection.create_index("created_at")
+        """Initialize tenant table with indexes"""
+        async with self.connection_manager.get_session() as session:
+            pass
     
     async def create_tenant(self, tenant_data: TenantModel) -> TenantModel:
         """Create a new tenant"""
-        # Check if subdomain already exists
-        existing = await self.collection.find_one({"subdomain": tenant_data.subdomain})
-        if existing:
-            raise ValueError(f"Subdomain '{tenant_data.subdomain}' already exists")
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import select
         
-        # Insert tenant
-        result = await self.collection.insert_one(tenant_data.to_dict())
-        tenant_data.id = str(result.inserted_id)
-        
-        return tenant_data
+        async with self.connection_manager.get_session() as session:
+            # Check if subdomain already exists
+            result = await session.execute(select(Tenant).where(Tenant.subdomain == tenant_data.subdomain))
+            existing = result.scalar_one_or_none()
+            if existing:
+                raise ValueError(f"Subdomain '{tenant_data.subdomain}' already exists")
+            
+            # Insert tenant
+            tenant_obj = Tenant(**tenant_data.to_dict())
+            session.add(tenant_obj)
+            await session.commit()
+            
+            return tenant_data
     
     async def get_tenant_by_id(self, tenant_id: str) -> Optional[TenantModel]:
         """Get tenant by ID"""
-        doc = await self.collection.find_one({"id": tenant_id})
-        return TenantModel.from_dict(doc) if doc else None
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import select
+        
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+            tenant = result.scalar_one_or_none()
+            return TenantModel.from_dict(tenant.__dict__) if tenant else None
     
     async def get_tenant_by_subdomain(self, subdomain: str) -> Optional[TenantModel]:
         """Get tenant by subdomain"""
-        doc = await self.collection.find_one({"subdomain": subdomain})
-        return TenantModel.from_dict(doc) if doc else None
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import select
+        
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(select(Tenant).where(Tenant.subdomain == subdomain))
+            tenant = result.scalar_one_or_none()
+            return TenantModel.from_dict(tenant.__dict__) if tenant else None
     
     async def update_tenant(self, tenant_id: str, updates: Dict[str, Any]) -> bool:
         """Update tenant data"""
-        updates["updated_at"] = datetime.utcnow()
-        result = await self.collection.update_one(
-            {"id": tenant_id},
-            {"$set": updates}
-        )
-        return result.modified_count > 0
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import update
+        
+        async with self.connection_manager.get_session() as session:
+            updates["updated_at"] = datetime.utcnow()
+            result = await session.execute(
+                update(Tenant).where(Tenant.id == tenant_id).values(**updates)
+            )
+            await session.commit()
+            return result.rowcount > 0
     
     async def delete_tenant(self, tenant_id: str) -> bool:
         """Soft delete tenant (set status to cancelled)"""
-        result = await self.collection.update_one(
-            {"id": tenant_id},
-            {"$set": {"status": TenantStatus.CANCELLED, "updated_at": datetime.utcnow()}}
-        )
-        return result.modified_count > 0
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import update
+        
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                update(Tenant).where(Tenant.id == tenant_id).values(
+                    status=TenantStatus.CANCELLED,
+                    updated_at=datetime.utcnow()
+                )
+            )
+            await session.commit()
+            return result.rowcount > 0
     
     async def list_tenants(
         self, 
@@ -205,55 +228,75 @@ class TenantRepository:
         offset: int = 0
     ) -> List[TenantModel]:
         """List tenants with filtering"""
-        query = {}
-        if status:
-            query["status"] = status
-        if industry:
-            query["industry"] = industry
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import select
         
-        cursor = self.collection.find(query).skip(offset).limit(limit)
-        docs = await cursor.to_list(length=limit)
-        
-        return [TenantModel.from_dict(doc) for doc in docs]
+        async with self.connection_manager.get_session() as session:
+            query = select(Tenant)
+            
+            if status:
+                query = query.where(Tenant.status == status)
+            if industry:
+                query = query.where(Tenant.industry_module == industry)
+            
+            query = query.offset(offset).limit(limit)
+            result = await session.execute(query)
+            tenants = result.scalars().all()
+            
+            return [TenantModel.from_dict(tenant.__dict__) for tenant in tenants]
     
     async def get_tenant_stats(self, tenant_id: str) -> Dict[str, Any]:
         """Get tenant usage statistics"""
+        from backend.models.postgresql_models import User, Booking, Page
+        from sqlalchemy import select, func
+        
         tenant = await self.get_tenant_by_id(tenant_id)
         if not tenant:
             return {}
         
-        # Get user count
-        user_count = await self.db.users.count_documents({
-            "tenant_id": tenant_id,
-            "is_active": True
-        })
-        
-        # Get booking count
-        booking_count = await self.db.bookings.count_documents({
-            "tenant_id": tenant_id
-        })
-        
-        # Get page count
-        page_count = await self.db.pages.count_documents({
-            "tenant_id": tenant_id
-        })
-        
-        return {
-            "user_count": user_count,
-            "booking_count": booking_count,
-            "page_count": page_count,
-            "storage_used_mb": tenant.storage_used_mb,
-            "api_calls_this_month": tenant.api_calls_this_month,
-            "subscription_plan": tenant.subscription_plan,
-            "status": tenant.status
-        }
+        async with self.connection_manager.get_session() as session:
+            # Get user count
+            user_result = await session.execute(
+                select(func.count(User.id)).where(
+                    User.tenant_id == tenant_id,
+                    User.is_active == True
+                )
+            )
+            user_count = user_result.scalar()
+            
+            # Get booking count
+            booking_result = await session.execute(
+                select(func.count(Booking.id)).where(Booking.tenant_id == tenant_id)
+            )
+            booking_count = booking_result.scalar()
+            
+            # Get page count
+            page_result = await session.execute(
+                select(func.count(Page.id)).where(Page.tenant_id == tenant_id)
+            )
+            page_count = page_result.scalar()
+            
+            return {
+                "user_count": user_count,
+                "booking_count": booking_count,
+                "page_count": page_count,
+                "storage_used_mb": tenant.storage_used_mb,
+                "api_calls_this_month": tenant.api_calls_this_month,
+                "subscription_plan": tenant.subscription_plan,
+                "status": tenant.status
+            }
     
     async def update_usage_stats(self, tenant_id: str, stats: Dict[str, Any]):
         """Update tenant usage statistics"""
-        await self.collection.update_one(
-            {"id": tenant_id},
-            {"$set": {**stats, "updated_at": datetime.utcnow()}}
-        )
+        from backend.models.postgresql_models import Tenant
+        from sqlalchemy import update
+        
+        async with self.connection_manager.get_session() as session:
+            stats["updated_at"] = datetime.utcnow()
+            await session.execute(
+                update(Tenant).where(Tenant.id == tenant_id).values(**stats)
+            )
+            await session.commit()
 
 
 class TenantService:

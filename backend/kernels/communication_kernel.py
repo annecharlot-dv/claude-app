@@ -6,6 +6,8 @@ from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 from enum import Enum
 from kernels.base_kernel import BaseKernel
+from sqlalchemy import select, update, func, delete
+from backend.models.postgresql_models import MessageTemplate, Workflow, MessageQueue, AutomationLog, NotificationPreference
 
 
 class TriggerEvent(str, Enum):
@@ -32,87 +34,98 @@ class MessageChannel(str, Enum):
 class CommunicationKernel(BaseKernel):
     """Universal communication and automation system"""
     
-    def __init__(self, db):
-        super().__init__(db)
+    def __init__(self, connection_manager):
+        super().__init__(connection_manager)
         self.workflows = {}
         self.message_handlers = {}
         self.triggers = {}
     
     async def _initialize_kernel(self):
         """Initialize communication kernel"""
-        # Ensure indexes exist
-        await self.db.message_templates.create_index([("tenant_id", 1), ("template_type", 1)])
-        await self.db.workflows.create_index([("tenant_id", 1), ("trigger_event", 1)])
-        await self.db.message_queue.create_index([("tenant_id", 1), ("status", 1), ("scheduled_for", 1)])
-        await self.db.automation_logs.create_index([("tenant_id", 1), ("created_at", -1)])
+        pass
     
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        user = await self.db.users.find_one({"id": user_id, "tenant_id": tenant_id})
-        return user is not None
+        from backend.models.postgresql_models import User
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(User.id == user_id, User.tenant_id == tenant_id)
+            )
+            user = result.scalar_one_or_none()
+            return user is not None
     
     # Message Template Management
     async def create_message_template(self, tenant_id: str, template_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new message template"""
-        template_doc = {
-            **template_data,
-            "tenant_id": tenant_id,
-            "is_active": True,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.message_templates.insert_one(template_doc)
-        return template_doc
+        async with self.connection_manager.get_session() as session:
+            template_obj = MessageTemplate(
+                tenant_id=tenant_id,
+                is_active=True,
+                created_at=datetime.utcnow(),
+                **template_data
+            )
+            session.add(template_obj)
+            await session.commit()
+            return template_obj.__dict__
     
     async def get_message_templates(self, tenant_id: str, template_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get message templates for tenant"""
-        query = {"tenant_id": tenant_id, "is_active": True}
-        if template_type:
-            query["template_type"] = template_type
-        
-        templates = await self.db.message_templates.find(query).to_list(1000)
-        return templates
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [MessageTemplate.tenant_id == tenant_id, MessageTemplate.is_active == True]
+            if template_type:
+                query_conditions.append(MessageTemplate.template_type == template_type)
+            
+            result = await session.execute(select(MessageTemplate).where(*query_conditions))
+            templates = result.scalars().all()
+            return [template.__dict__ for template in templates]
     
     async def render_template(self, template_id: str, context: Dict[str, Any]) -> Dict[str, str]:
         """Render a message template with context data"""
-        template = await self.db.message_templates.find_one({"id": template_id})
-        if not template:
-            raise ValueError("Template not found")
-        
-        # Simple template rendering (in production, use a proper template engine)
-        subject = template.get("subject", "")
-        body = template.get("body", "")
-        
-        for key, value in context.items():
-            placeholder = f"{{{key}}}"
-            subject = subject.replace(placeholder, str(value))
-            body = body.replace(placeholder, str(value))
-        
-        return {
-            "subject": subject,
-            "body": body,
-            "channel": template.get("channel", MessageChannel.EMAIL)
-        }
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(select(MessageTemplate).where(MessageTemplate.id == template_id))
+            template = result.scalar_one_or_none()
+            if not template:
+                raise ValueError("Template not found")
+            
+            # Simple template rendering (in production, use a proper template engine)
+            subject = template.subject or ""
+            body = template.body or ""
+            
+            for key, value in context.items():
+                placeholder = f"{{{key}}}"
+                subject = subject.replace(placeholder, str(value))
+                body = body.replace(placeholder, str(value))
+            
+            return {
+                "subject": subject,
+                "body": body,
+                "channel": template.channel or MessageChannel.EMAIL
+            }
     
     # Workflow Management
     async def create_workflow(self, tenant_id: str, workflow_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create an automation workflow"""
-        workflow_doc = {
-            **workflow_data,
-            "tenant_id": tenant_id,
-            "is_active": True,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.workflows.insert_one(workflow_doc)
-        return workflow_doc
+        async with self.connection_manager.get_session() as session:
+            workflow_obj = Workflow(
+                tenant_id=tenant_id,
+                is_active=True,
+                created_at=datetime.utcnow(),
+                **workflow_data
+            )
+            session.add(workflow_obj)
+            await session.commit()
+            return workflow_obj.__dict__
     
     async def get_workflows(self, tenant_id: str, trigger_event: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get workflows for tenant"""
-        query = {"tenant_id": tenant_id, "is_active": True}
-        if trigger_event:
-            query["trigger_event"] = trigger_event
-        
-        workflows = await self.db.workflows.find(query).to_list(1000)
-        return workflows
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [Workflow.tenant_id == tenant_id, Workflow.is_active == True]
+            if trigger_event:
+                query_conditions.append(Workflow.trigger_event == trigger_event)
+            
+            result = await session.execute(select(Workflow).where(*query_conditions))
+            workflows = result.scalars().all()
+            return [workflow.__dict__ for workflow in workflows]
     
     # Message Queue Management
     async def queue_message(self, tenant_id: str, message_data: Dict[str, Any], 

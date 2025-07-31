@@ -3,13 +3,13 @@ Base Kernel - Abstract base class for all kernels
 """
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class BaseKernel(ABC):
     """Abstract base class for all kernels in the Claude Platform"""
     
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self._initialized = False
     

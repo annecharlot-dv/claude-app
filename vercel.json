@@ -14,8 +14,7 @@
     "NODE_ENV": "production",
     "REACT_APP_API_URL": "@api_url",
     "SECRET_KEY": "@secret_key",
-    "MONGO_URL": "@mongo_url",
-    "DB_NAME": "@db_name"
+    "DATABASE_URL": "@database_url"
   },
   "build": {
     "env": {

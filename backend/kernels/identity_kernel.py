@@ -7,28 +7,31 @@ from datetime import datetime, timedelta
 import jwt
 from passlib.context import CryptContext
 from kernels.base_kernel import BaseKernel
+from backend.models.postgresql_models import User, UserPassword, Tenant
+from sqlalchemy import select, update
 
 
 class IdentityKernel(BaseKernel):
     """Universal identity and authentication management"""
     
-    def __init__(self, db, secret_key: str, algorithm: str = "HS256"):
-        super().__init__(db)
+    def __init__(self, connection_manager, secret_key: str, algorithm: str = "HS256"):
+        super().__init__(connection_manager)
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     
     async def _initialize_kernel(self):
         """Initialize identity kernel"""
-        # Ensure indexes exist
-        await self.db.users.create_index([("email", 1), ("tenant_id", 1)], unique=True)
-        await self.db.user_passwords.create_index("user_id", unique=True)
-        await self.db.tenants.create_index("subdomain", unique=True)
+        pass
     
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        user = await self.db.users.find_one({"id": user_id, "tenant_id": tenant_id})
-        return user is not None
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(User.id == user_id, User.tenant_id == tenant_id)
+            )
+            user = result.scalar_one_or_none()
+            return user is not None
     
     # User Management
     async def create_user(self, tenant_id: str, user_data: Dict[str, Any], password: str) -> Dict[str, Any]:
@@ -36,52 +39,87 @@ class IdentityKernel(BaseKernel):
         # Hash password
         hashed_password = self.pwd_context.hash(password)
         
-        # Create user document
-        user_doc = {
-            **user_data,
-            "tenant_id": tenant_id,
-            "is_active": True,
-            "created_at": datetime.utcnow(),
-            "last_login": None
-        }
-        
-        # Insert user and password
-        await self.db.users.insert_one(user_doc)
-        await self.db.user_passwords.insert_one({
-            "user_id": user_doc["id"],
-            "hashed_password": hashed_password
-        })
-        
-        return user_doc
+        async with self.connection_manager.get_session() as session:
+            # Create user
+            user_obj = User(
+                **user_data,
+                tenant_id=tenant_id,
+                is_active=True,
+                created_at=datetime.utcnow(),
+                last_login=None
+            )
+            session.add(user_obj)
+            
+            password_obj = UserPassword(
+                user_id=user_obj.id,
+                hashed_password=hashed_password
+            )
+            session.add(password_obj)
+            
+            await session.commit()
+            
+            return {
+                "id": user_obj.id,
+                "tenant_id": user_obj.tenant_id,
+                "email": user_obj.email,
+                "role": user_obj.role,
+                "is_active": user_obj.is_active,
+                "created_at": user_obj.created_at,
+                "last_login": user_obj.last_login
+            }
     
     async def authenticate_user(self, tenant_subdomain: str, email: str, password: str) -> Optional[Dict[str, Any]]:
         """Authenticate user and return user data if valid"""
-        # Find tenant
-        tenant = await self.db.tenants.find_one({"subdomain": tenant_subdomain})
-        if not tenant:
-            return None
-        
-        # Find user
-        user = await self.db.users.find_one({
-            "email": email,
-            "tenant_id": tenant["id"],
-            "is_active": True
-        })
-        if not user:
-            return None
-        
-        # Verify password
-        password_doc = await self.db.user_passwords.find_one({"user_id": user["id"]})
-        if not password_doc or not self.pwd_context.verify(password, password_doc["hashed_password"]):
-            return None
-        
-        # Update last login
-        await self.db.users.update_one(
-            {"id": user["id"]},
-            {"$set": {"last_login": datetime.utcnow()}}
-        )
-        
-        return {**user, "tenant": tenant}
+        async with self.connection_manager.get_session() as session:
+            # Find tenant
+            tenant_result = await session.execute(
+                select(Tenant).where(Tenant.subdomain == tenant_subdomain)
+            )
+            tenant = tenant_result.scalar_one_or_none()
+            if not tenant:
+                return None
+            
+            # Find user
+            user_result = await session.execute(
+                select(User).where(
+                    User.email == email,
+                    User.tenant_id == tenant.id,
+                    User.is_active == True
+                )
+            )
+            user = user_result.scalar_one_or_none()
+            if not user:
+                return None
+            
+            # Verify password
+            password_result = await session.execute(
+                select(UserPassword).where(UserPassword.user_id == user.id)
+            )
+            password_doc = password_result.scalar_one_or_none()
+            if not password_doc or not self.pwd_context.verify(password, password_doc.hashed_password):
+                return None
+            
+            # Update last login
+            await session.execute(
+                update(User).where(User.id == user.id).values(last_login=datetime.utcnow())
+            )
+            await session.commit()
+            
+            return {
+                "id": user.id,
+                "email": user.email,
+                "tenant_id": user.tenant_id,
+                "role": user.role,
+                "is_active": user.is_active,
+                "created_at": user.created_at,
+                "last_login": datetime.utcnow(),
+                "tenant": {
+                    "id": tenant.id,
+                    "name": tenant.name,
+                    "subdomain": tenant.subdomain,
+                    "industry_module": tenant.industry_module
+                }
+            }
     
     async def create_access_token(self, user_id: str, expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT access token"""
@@ -103,7 +141,23 @@ class IdentityKernel(BaseKernel):
     
     async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get user by ID"""
-        return await self.db.users.find_one({"id": user_id, "is_active": True})
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(User.id == user_id, User.is_active == True)
+            )
+            user = result.scalar_one_or_none()
+            if not user:
+                return None
+            
+            return {
+                "id": user.id,
+                "email": user.email,
+                "tenant_id": user.tenant_id,
+                "role": user.role,
+                "is_active": user.is_active,
+                "created_at": user.created_at,
+                "last_login": user.last_login
+            }
     
     async def get_user_permissions(self, user_id: str) -> List[str]:
         """Get user permissions based on role"""
