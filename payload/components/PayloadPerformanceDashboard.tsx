@@ -275,7 +275,7 @@ const PayloadPerformanceDashboard: React.FC = () => {
       {/* Slow Queries */}
       {metrics.database.slowQueries.length > 0 && (
         <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-red-900 mb-4">Slow Queries (>100ms)</h3>
+          <h3 className="text-lg font-semibold text-red-900 mb-4">Slow Queries (&gt;100ms)</h3>
           
           <div className="space-y-2">
             {metrics.database.slowQueries.slice(0, 5).map((query, index) => (
