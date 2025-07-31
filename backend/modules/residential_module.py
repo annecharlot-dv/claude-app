@@ -2,26 +2,27 @@
 Residential Module - Industry-specific experience for residential lofts and home offices
 Transforms the universal platform into a residential space management solution
 """
+
 from typing import Dict, Any, List
 from .base_module import BaseModule
 
 
 class ResidentialModule(BaseModule):
     """Residential industry module - home office and residential space management"""
-    
+
     def get_module_name(self) -> str:
         return "Residential Space Management Hub"
-    
+
     def get_module_version(self) -> str:
         return "1.0.0"
-    
+
     def get_terminology_dictionary(self) -> Dict[str, str]:
         """Residential-specific terminology"""
         return {
             # Core platform terms -> Residential terms
             "users": "residents",
             "user": "resident",
-            "customers": "tenants", 
+            "customers": "tenants",
             "customer": "tenant",
             "clients": "residents",
             "client": "resident",
@@ -45,9 +46,9 @@ class ResidentialModule(BaseModule):
             "subscription": "resident access",
             "subscriptions": "resident access",
             "invoices": "resident bills",
-            "invoice": "resident bill"
+            "invoice": "resident bill",
         }
-    
+
     def get_enabled_features(self) -> List[str]:
         """Features enabled for residential properties"""
         return [
@@ -69,9 +70,9 @@ class ResidentialModule(BaseModule):
             "community_board",
             "resident_services",
             "parking_management",
-            "utility_monitoring"
+            "utility_monitoring",
         ]
-    
+
     def get_active_workflows(self) -> List[Dict[str, Any]]:
         """Residential-specific automation workflows"""
         return [
@@ -82,19 +83,19 @@ class ResidentialModule(BaseModule):
                     {
                         "type": "send_message",
                         "template_id": "resident_welcome_package",
-                        "delay_minutes": 0
+                        "delay_minutes": 0,
                     },
                     {
                         "type": "send_message",
                         "template_id": "amenity_guide",
-                        "delay_minutes": 60
+                        "delay_minutes": 60,
                     },
                     {
                         "type": "send_message",
                         "template_id": "community_guidelines",
-                        "delay_minutes": 1440
-                    }
-                ]
+                        "delay_minutes": 1440,
+                    },
+                ],
             },
             {
                 "name": "maintenance_workflow",
@@ -103,14 +104,14 @@ class ResidentialModule(BaseModule):
                     {
                         "type": "send_message",
                         "template_id": "maintenance_confirmation",
-                        "recipient": "resident"
+                        "recipient": "resident",
                     },
                     {
                         "type": "send_message",
                         "template_id": "work_order_created",
-                        "recipient": "maintenance_team"
-                    }
-                ]
+                        "recipient": "maintenance_team",
+                    },
+                ],
             },
             {
                 "name": "amenity_reminder",
@@ -120,9 +121,9 @@ class ResidentialModule(BaseModule):
                     {
                         "type": "send_message",
                         "template_id": "amenity_reminder",
-                        "recipient": "resident"
+                        "recipient": "resident",
                     }
-                ]
+                ],
             },
             {
                 "name": "community_engagement",
@@ -131,12 +132,12 @@ class ResidentialModule(BaseModule):
                     {
                         "type": "send_message",
                         "template_id": "community_event_notice",
-                        "recipient": "all_residents"
+                        "recipient": "all_residents",
                     }
-                ]
-            }
+                ],
+            },
         ]
-    
+
     def get_role_hierarchy(self) -> Dict[str, Dict[str, Any]]:
         """Residential role structure"""
         return {
@@ -144,53 +145,65 @@ class ResidentialModule(BaseModule):
                 "display_name": "Property Owner",
                 "description": "Owns the residential property",
                 "permissions": ["*"],
-                "level": 5
+                "level": 5,
             },
             "administrator": {
                 "display_name": "Property Manager",
                 "description": "Manages residential property operations",
                 "permissions": [
-                    "residents.manage", "amenities.manage", "events.manage",
-                    "reservations.manage", "maintenance.coordinate", "reports.view"
+                    "residents.manage",
+                    "amenities.manage",
+                    "events.manage",
+                    "reservations.manage",
+                    "maintenance.coordinate",
+                    "reports.view",
                 ],
-                "level": 4
+                "level": 4,
             },
             "front_desk": {
                 "display_name": "Concierge",
                 "description": "Provides resident services and assistance",
                 "permissions": [
-                    "residents.assist", "reservations.view", "reservations.create",
-                    "visitor.manage", "packages.coordinate", "services.provide"
+                    "residents.assist",
+                    "reservations.view",
+                    "reservations.create",
+                    "visitor.manage",
+                    "packages.coordinate",
+                    "services.provide",
                 ],
-                "level": 3
+                "level": 3,
             },
             "maintenance": {
                 "display_name": "Maintenance Coordinator",
                 "description": "Handles property maintenance and repairs",
                 "permissions": [
-                    "maintenance.manage", "work_orders.process", "amenities.maintain"
+                    "maintenance.manage",
+                    "work_orders.process",
+                    "amenities.maintain",
                 ],
-                "level": 2
+                "level": 2,
             },
             "security": {
                 "display_name": "Security Personnel",
                 "description": "Provides security and access control",
-                "permissions": [
-                    "security.monitor", "visitor.screen", "access.control"
-                ],
-                "level": 2
+                "permissions": ["security.monitor", "visitor.screen", "access.control"],
+                "level": 2,
             },
             "member": {
                 "display_name": "Resident",
                 "description": "Lives in the residential property",
                 "permissions": [
-                    "reservations.create", "reservations.view_own", "amenities.use",
-                    "maintenance.request", "events.view", "community.participate"
+                    "reservations.create",
+                    "reservations.view_own",
+                    "amenities.use",
+                    "maintenance.request",
+                    "events.view",
+                    "community.participate",
                 ],
-                "level": 1
-            }
+                "level": 1,
+            },
         }
-    
+
     def get_navigation_structure(self) -> List[Dict[str, Any]]:
         """Residential navigation menu"""
         return [
@@ -198,82 +211,82 @@ class ResidentialModule(BaseModule):
                 "name": "Resident Dashboard",
                 "path": "/dashboard",
                 "icon": "home",
-                "roles": ["*"]
+                "roles": ["*"],
             },
             {
                 "name": "My Reservations",
                 "path": "/reservations",
                 "icon": "calendar",
-                "roles": ["member"]
+                "roles": ["member"],
             },
             {
                 "name": "Book Amenity",
                 "path": "/booking",
                 "icon": "calendar-plus",
-                "roles": ["member"]
+                "roles": ["member"],
             },
             {
                 "name": "Maintenance Requests",
                 "path": "/maintenance",
                 "icon": "tool",
-                "roles": ["member"]
+                "roles": ["member"],
             },
             {
                 "name": "Community Events",
                 "path": "/events",
                 "icon": "users",
-                "roles": ["*"]
+                "roles": ["*"],
             },
             {
                 "name": "Resident Directory",
                 "path": "/directory",
                 "icon": "user-group",
-                "roles": ["member"]
+                "roles": ["member"],
             },
             {
                 "name": "Community Board",
                 "path": "/community",
                 "icon": "message-square",
-                "roles": ["member"]
+                "roles": ["member"],
             },
             {
                 "name": "Building Services",
                 "path": "/services",
                 "icon": "bell",
-                "roles": ["member"]
+                "roles": ["member"],
             },
             {
                 "name": "Property Management",
                 "path": "/admin/property",
                 "icon": "building",
-                "roles": ["administrator", "account_owner"]
+                "roles": ["administrator", "account_owner"],
             },
             {
                 "name": "Resident Management",
                 "path": "/admin/residents",
                 "icon": "users",
-                "roles": ["front_desk", "administrator", "account_owner"]
+                "roles": ["front_desk", "administrator", "account_owner"],
             },
             {
                 "name": "Prospective Residents",
                 "path": "/leads",
                 "icon": "user-plus",
-                "roles": ["front_desk", "administrator", "account_owner"]
+                "roles": ["front_desk", "administrator", "account_owner"],
             },
             {
                 "name": "Property Website",
                 "path": "/cms/pages",
                 "icon": "globe",
-                "roles": ["administrator", "account_owner"]
+                "roles": ["administrator", "account_owner"],
             },
             {
                 "name": "Property Analytics",
                 "path": "/analytics",
                 "icon": "bar-chart",
-                "roles": ["administrator", "account_owner"]
-            }
+                "roles": ["administrator", "account_owner"],
+            },
         ]
-    
+
     def get_dashboard_layout(self) -> Dict[str, Any]:
         """Residential dashboard configuration"""
         return {
@@ -282,41 +295,61 @@ class ResidentialModule(BaseModule):
                     "type": "resident_satisfaction",
                     "title": "Resident Satisfaction",
                     "position": {"row": 1, "col": 1, "span": 2},
-                    "metrics": ["satisfaction_score", "retention_rate", "referrals"]
+                    "metrics": ["satisfaction_score", "retention_rate", "referrals"],
                 },
                 {
                     "type": "amenity_usage",
                     "title": "Amenity Usage",
                     "position": {"row": 1, "col": 3, "span": 2},
-                    "metrics": ["popular_amenities", "peak_times", "utilization_rate"]
+                    "metrics": ["popular_amenities", "peak_times", "utilization_rate"],
                 },
                 {
                     "type": "maintenance_overview",
                     "title": "Maintenance Status",
                     "position": {"row": 2, "col": 1, "span": 2},
-                    "metrics": ["open_requests", "response_time", "completion_rate"]
+                    "metrics": ["open_requests", "response_time", "completion_rate"],
                 },
                 {
                     "type": "community_engagement",
                     "title": "Community Activity",
                     "position": {"row": 2, "col": 3, "span": 2},
-                    "metrics": ["event_attendance", "community_posts", "resident_participation"]
+                    "metrics": [
+                        "event_attendance",
+                        "community_posts",
+                        "resident_participation",
+                    ],
                 },
                 {
                     "type": "building_operations",
                     "title": "Building Operations",
                     "position": {"row": 3, "col": 1, "span": 3},
-                    "roles": ["administrator", "account_owner"]
-                }
+                    "roles": ["administrator", "account_owner"],
+                },
             ],
             "quick_actions": [
-                {"name": "Book Home Office", "action": "book_office", "icon": "briefcase"},
-                {"name": "Report Maintenance", "action": "maintenance_request", "icon": "tool"},
-                {"name": "Plan Community Event", "action": "create_event", "icon": "users"},
-                {"name": "Resident Survey", "action": "satisfaction_survey", "icon": "star"}
-            ]
+                {
+                    "name": "Book Home Office",
+                    "action": "book_office",
+                    "icon": "briefcase",
+                },
+                {
+                    "name": "Report Maintenance",
+                    "action": "maintenance_request",
+                    "icon": "tool",
+                },
+                {
+                    "name": "Plan Community Event",
+                    "action": "create_event",
+                    "icon": "users",
+                },
+                {
+                    "name": "Resident Survey",
+                    "action": "satisfaction_survey",
+                    "icon": "star",
+                },
+            ],
         }
-    
+
     def get_default_page_templates(self) -> Dict[str, Dict[str, Any]]:
         """Residential page templates"""
         return {
@@ -329,36 +362,33 @@ class ResidentialModule(BaseModule):
                             "title": "Your Home, Enhanced by Community",
                             "subtitle": "Modern living with premium amenities and a vibrant resident community",
                             "cta_text": "Schedule Property Tour",
-                            "cta_action": "schedule_tour"
-                        }
+                            "cta_action": "schedule_tour",
+                        },
                     },
                     {
                         "type": "amenity_showcase",
                         "config": {
                             "title": "Premium Amenities",
                             "show_availability": True,
-                            "focus": "lifestyle"
-                        }
+                            "focus": "lifestyle",
+                        },
                     },
                     {
                         "type": "community_highlights",
                         "config": {
                             "title": "Resident Community",
                             "show_events": True,
-                            "show_testimonials": True
-                        }
+                            "show_testimonials": True,
+                        },
                     },
                     {
                         "type": "floor_plans",
-                        "config": {
-                            "title": "Available Units",
-                            "show_pricing": True
-                        }
-                    }
-                ]
+                        "config": {"title": "Available Units", "show_pricing": True},
+                    },
+                ],
             }
         }
-    
+
     def get_form_templates(self) -> Dict[str, Dict[str, Any]]:
         """Residential form templates"""
         return {
@@ -369,30 +399,86 @@ class ResidentialModule(BaseModule):
                     {"label": "Email", "type": "email", "required": True},
                     {"label": "Phone", "type": "phone", "required": True},
                     {"label": "Desired Move-in Date", "type": "date", "required": True},
-                    {"label": "Unit Type", "type": "select", "required": True,
-                     "options": ["Studio", "1 Bedroom", "2 Bedroom", "3 Bedroom", "Penthouse"]},
-                    {"label": "Budget Range", "type": "select", "required": False,
-                     "options": ["Under $2,000", "$2,000-$3,000", "$3,000-$4,000", "$4,000-$5,000", "$5,000+"]},
-                    {"label": "Employment Status", "type": "select", "required": True,
-                     "options": ["Employed", "Self-employed", "Student", "Retired"]},
-                    {"label": "Additional Information", "type": "textarea", "required": False}
-                ]
+                    {
+                        "label": "Unit Type",
+                        "type": "select",
+                        "required": True,
+                        "options": [
+                            "Studio",
+                            "1 Bedroom",
+                            "2 Bedroom",
+                            "3 Bedroom",
+                            "Penthouse",
+                        ],
+                    },
+                    {
+                        "label": "Budget Range",
+                        "type": "select",
+                        "required": False,
+                        "options": [
+                            "Under $2,000",
+                            "$2,000-$3,000",
+                            "$3,000-$4,000",
+                            "$4,000-$5,000",
+                            "$5,000+",
+                        ],
+                    },
+                    {
+                        "label": "Employment Status",
+                        "type": "select",
+                        "required": True,
+                        "options": ["Employed", "Self-employed", "Student", "Retired"],
+                    },
+                    {
+                        "label": "Additional Information",
+                        "type": "textarea",
+                        "required": False,
+                    },
+                ],
             },
             "maintenance_request": {
                 "name": "Maintenance Request Form",
                 "fields": [
                     {"label": "Unit Number", "type": "text", "required": True},
-                    {"label": "Issue Category", "type": "select", "required": True,
-                     "options": ["Plumbing", "Electrical", "HVAC", "Appliances", "General Repair", "Emergency"]},
-                    {"label": "Priority Level", "type": "select", "required": True,
-                     "options": ["Low", "Medium", "High", "Emergency"]},
-                    {"label": "Issue Description", "type": "textarea", "required": True},
-                    {"label": "Best Time to Access", "type": "select", "required": False,
-                     "options": ["Weekday Morning", "Weekday Afternoon", "Weekend", "Anytime"]}
-                ]
-            }
+                    {
+                        "label": "Issue Category",
+                        "type": "select",
+                        "required": True,
+                        "options": [
+                            "Plumbing",
+                            "Electrical",
+                            "HVAC",
+                            "Appliances",
+                            "General Repair",
+                            "Emergency",
+                        ],
+                    },
+                    {
+                        "label": "Priority Level",
+                        "type": "select",
+                        "required": True,
+                        "options": ["Low", "Medium", "High", "Emergency"],
+                    },
+                    {
+                        "label": "Issue Description",
+                        "type": "textarea",
+                        "required": True,
+                    },
+                    {
+                        "label": "Best Time to Access",
+                        "type": "select",
+                        "required": False,
+                        "options": [
+                            "Weekday Morning",
+                            "Weekday Afternoon",
+                            "Weekend",
+                            "Anytime",
+                        ],
+                    },
+                ],
+            },
         }
-    
+
     def get_resource_types(self) -> List[Dict[str, Any]]:
         """Residential amenity types"""
         return [
@@ -403,7 +489,7 @@ class ResidentialModule(BaseModule):
                 "pricing_type": "hourly",
                 "bookable": True,
                 "requires_approval": False,
-                "advance_booking_days": 7
+                "advance_booking_days": 7,
             },
             {
                 "type": "meeting_room",
@@ -412,7 +498,7 @@ class ResidentialModule(BaseModule):
                 "pricing_type": "hourly",
                 "bookable": True,
                 "requires_approval": False,
-                "advance_booking_days": 14
+                "advance_booking_days": 14,
             },
             {
                 "type": "fitness_center",
@@ -421,7 +507,7 @@ class ResidentialModule(BaseModule):
                 "pricing_type": "free",
                 "bookable": True,
                 "requires_approval": False,
-                "advance_booking_days": 3
+                "advance_booking_days": 3,
             },
             {
                 "type": "rooftop_terrace",
@@ -430,7 +516,7 @@ class ResidentialModule(BaseModule):
                 "pricing_type": "free",
                 "bookable": True,
                 "requires_approval": True,
-                "advance_booking_days": 30
+                "advance_booking_days": 30,
             },
             {
                 "type": "party_room",
@@ -439,10 +525,10 @@ class ResidentialModule(BaseModule):
                 "pricing_type": "fee_based",
                 "bookable": True,
                 "requires_approval": True,
-                "advance_booking_days": 14
-            }
+                "advance_booking_days": 14,
+            },
         ]
-    
+
     def get_dashboard_metrics(self) -> List[Dict[str, Any]]:
         """Residential dashboard metrics"""
         return [
@@ -450,36 +536,36 @@ class ResidentialModule(BaseModule):
                 "name": "active_residents",
                 "display_name": "Active Residents",
                 "type": "count",
-                "importance": "high"
+                "importance": "high",
             },
             {
                 "name": "amenity_utilization",
                 "display_name": "Amenity Usage",
                 "type": "percentage",
-                "importance": "high"
+                "importance": "high",
             },
             {
                 "name": "maintenance_requests",
                 "display_name": "Maintenance Requests",
                 "type": "count",
-                "importance": "high"
+                "importance": "high",
             },
             {
                 "name": "resident_satisfaction",
                 "display_name": "Resident Satisfaction",
                 "type": "rating",
-                "importance": "high"
+                "importance": "high",
             },
             {
                 "name": "community_events",
                 "display_name": "Community Events",
                 "type": "count",
-                "importance": "medium"
+                "importance": "medium",
             },
             {
                 "name": "occupancy_rate",
                 "display_name": "Occupancy Rate",
                 "type": "percentage",
-                "importance": "medium"
-            }
+                "importance": "medium",
+            },
         ]
