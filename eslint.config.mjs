@@ -13,16 +13,19 @@ export default [
       "node_modules/",
       "dist/",
       "build/",
-      "coverage/",
-      ".next/",
-      "out/"
+      "coverage/"
     ]
   },
 
-  // JavaScript/TypeScript base configuration
+  // Base JavaScript configuration
+  js.configs.recommended,
+
+  // TypeScript configurations
+  ...tseslint.configs.recommended,
+
+  // JavaScript/TypeScript files
   {
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
-    ...js.configs.recommended,
+    files: ["**/*.{js,mjs,cjs,ts,tsx}"],
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -31,93 +34,49 @@ export default [
     }
   },
 
-  // TypeScript configuration
-  ...tseslint.configs.recommended.map(config => ({
-    ...config,
-    files: ["**/*.{ts,mts,cts,tsx}"]
-  })),
-
-  // React configuration - more explicit setup
+  // React configuration
   {
     files: ["**/*.{jsx,tsx}"],
-    plugins: {
-      react: pluginReact
-    },
-    languageOptions: {
-      ...pluginReact.configs.flat.recommended.languageOptions,
-      globals: {
-        ...globals.browser
-      },
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true
-        }
-      }
-    },
+    ...pluginReact.configs.flat.recommended,
     settings: {
       react: {
         version: "18.3"
       }
     },
     rules: {
-      ...pluginReact.configs.flat.recommended.rules,
-      // Common React rule adjustments for modern React
-      "react/react-in-jsx-scope": "off", // Not needed in React 17+
-      "react/prop-types": "off", // Often disabled when using TypeScript
-      "react/display-name": "off" // Often too strict for functional components
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off"
     }
   },
 
-  // JSON files
+  // JSON configuration
   {
     files: ["**/*.json"],
+    language: "json/json",
     ...json.configs.recommended
   },
 
-  // JSONC files (JSON with comments)
-  {
-    files: ["**/*.jsonc"],
-    language: "json/jsonc",
-    ...json.configs.recommended
-  },
-
-  // JSON5 files
-  {
-    files: ["**/*.json5"],
-    language: "json/json5",
-    ...json.configs.recommended
-  },
-
-  // Markdown files
+  // Markdown configuration
   {
     files: ["**/*.md"],
+    language: "markdown/gfm",
     ...markdown.configs.recommended
   },
 
-  // CSS files
+  // CSS configuration
   {
     files: ["**/*.css"],
+    language: "css/css",
     ...css.configs.recommended
   },
 
-  // Project-specific overrides - more lenient rules
+  // Lenient overrides
   {
     files: ["**/*.{ts,tsx}"],
     rules: {
-      // TypeScript-specific rule adjustments
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-explicit-any": "warn", // Warning instead of error
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/ban-ts-comment": "warn"
-    }
-  },
-
-  // Payload CMS specific overrides
-  {
-    files: ["**/payload.config.{js,ts}", "**/collections/**/*.{js,ts}", "**/globals/**/*.{js,ts}"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off", // Payload often uses any types
-      "@typescript-eslint/ban-ts-comment": "off"
     }
   }
 ];
