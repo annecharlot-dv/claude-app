@@ -1,4 +1,7 @@
-# Create a minimal config to test
+# Remove the corrupted file
+rm eslint.config.mjs
+
+# Create the file with the correct content
 cat > eslint.config.mjs << 'EOF'
 import js from "@eslint/js";
 
