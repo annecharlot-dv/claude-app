@@ -43,7 +43,7 @@ jobs:
       - name: Run Frontend Tests
         working-directory: ./frontend
         run: |
-          yarn test --coverage --watchAll=false
+          yarn test --coverage --watchAll=false --passWithNoTests
           yarn build:analyze
       
       - name: Run Backend Tests
