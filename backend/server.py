@@ -1,45 +1,46 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-import os
+import json
 import logging
-from pathlib import Path
-
-# Import database components
-from database.config.connection_pool import PostgreSQLConnectionManager
-from kernels.postgresql_identity_kernel import PostgreSQLIdentityKernel
-from models.cross_db_models import Base
-
-# Import performance optimizations
-from performance.database_optimizer import get_db_optimizer
-from performance.cache_manager import get_cache_manager
-from performance.monitor import get_performance_monitor, monitor_performance
-from performance.api_optimizer import PerformanceMiddleware, cache_response
-from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict, Any, Union
+import os
 import uuid
 from datetime import datetime, timedelta
-import jwt
-from passlib.context import CryptContext
 from enum import Enum
-import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+import jwt
+from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr, Field
+from starlette.middleware.cors import CORSMiddleware
+
+from api.communication_api import router as communication_router
+from api.financial_api import router as financial_router
+from api.health_api import router as health_router
+from api.lead_api import router as lead_router
+from api.tenant_api import router as tenant_router
 
 # Import the new core platform
-from claude_platform_core import initialize_platform, get_platform_core
+from claude_platform_core import get_platform_core, initialize_platform
 
 # Import Enhanced CMS Engine
 from cms_engine.coworking_cms import CoworkingCMSEngine
 
+# Import database components
+from database.config.connection_pool import PostgreSQLConnectionManager
+from kernels.postgresql_identity_kernel import PostgreSQLIdentityKernel
+from middleware.tenant_middleware import TenantMiddleware
+from models.cross_db_models import Base
+
 # Import multi-tenant components
 from models.tenant import TenantRepository, TenantService
-from middleware.tenant_middleware import TenantMiddleware
-from api.tenant_api import router as tenant_router
-from api.lead_api import router as lead_router
-from api.financial_api import router as financial_router
-from api.communication_api import router as communication_router
-from api.health_api import router as health_router
+from performance.api_optimizer import PerformanceMiddleware, cache_response
+from performance.cache_manager import get_cache_manager
 
+# Import performance optimizations
+from performance.database_optimizer import get_db_optimizer
+from performance.monitor import get_performance_monitor, monitor_performance
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -545,8 +546,9 @@ async def login_user(user_data: UserLogin, tenant_subdomain: str):
 @api_router.post("/tenants", response_model=Tenant)
 async def create_tenant(tenant_data: TenantCreate):
     # Check if subdomain is available
-    from models.postgresql_models import Tenant
     from sqlalchemy import select
+
+    from models.postgresql_models import Tenant
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -637,8 +639,9 @@ def get_default_feature_toggles(industry_module: IndustryModule) -> Dict[str, bo
 async def create_default_homepage(tenant_id: str, industry_module: IndustryModule):
     """Create a default homepage based on industry module"""
     # Get default template for industry
-    from models.postgresql_models import Template
     from sqlalchemy import select
+
+    from models.postgresql_models import Template
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -742,8 +745,9 @@ async def get_pages(
         )
     ),
 ):
-    from models.postgresql_models import Page
     from sqlalchemy import select
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         db_optimizer = await get_db_optimizer(session)
@@ -771,8 +775,9 @@ async def create_page(
         )
     ),
 ):
-    from models.postgresql_models import Page
     from sqlalchemy import select, update
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -803,8 +808,9 @@ async def create_page(
 
 @api_router.get("/cms/pages/{page_id}", response_model=Page)
 async def get_page(page_id: str, current_user: User = Depends(get_current_user)):
-    from models.postgresql_models import Page
     from sqlalchemy import select
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -828,9 +834,11 @@ async def update_page(
         )
     ),
 ):
-    from models.postgresql_models import Page
-    from sqlalchemy import select, update
     from datetime import datetime
+
+    from sqlalchemy import select, update
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -864,8 +872,9 @@ async def delete_page(
         )
     ),
 ):
+    from sqlalchemy import delete, select
+
     from models.postgresql_models import Page
-    from sqlalchemy import select, delete
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -887,8 +896,9 @@ async def delete_page(
 
 @api_router.get("/cms/templates", response_model=List[Template])
 async def get_templates(current_user: User = Depends(get_current_user)):
+    from sqlalchemy import or_, select
+
     from models.postgresql_models import Template, Tenant
-    from sqlalchemy import select, or_
 
     async with connection_manager.get_session() as session:
         tenant_result = await session.execute(
@@ -922,8 +932,9 @@ async def get_forms(
         )
     )
 ):
-    from models.postgresql_models import Form
     from sqlalchemy import select
+
+    from models.postgresql_models import Form
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -954,8 +965,9 @@ async def create_form(
 @api_router.post("/forms/{form_id}/submit")
 async def submit_form(form_id: str, submission: FormSubmission, request: Request):
     # Get form by ID
-    from models.postgresql_models import Form
     from sqlalchemy import select
+
+    from models.postgresql_models import Form
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -1076,8 +1088,9 @@ async def get_leads(
         )
     ),
 ):
-    from models.postgresql_models import Page
     from sqlalchemy import select
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         db_optimizer = await get_db_optimizer(session)
@@ -1133,8 +1146,9 @@ async def get_lead(
         )
     ),
 ):
-    from models.postgresql_models import Lead
     from sqlalchemy import select
+
+    from models.postgresql_models import Lead
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -1163,8 +1177,9 @@ async def update_lead(
         )
     ),
 ):
-    from models.postgresql_models import Lead
     from sqlalchemy import select
+
+    from models.postgresql_models import Lead
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -1215,8 +1230,9 @@ async def get_tour_slots(
         else:
             query["date"] = {"$lte": datetime.fromisoformat(date_to)}
 
-    from models.postgresql_models import TourSlot
     from sqlalchemy import select
+
+    from models.postgresql_models import TourSlot
 
     async with connection_manager.get_session() as session:
         query_conditions = [TourSlot.tenant_id == current_user.tenant_id]
@@ -1252,10 +1268,12 @@ async def create_tour_slot(
 
 @api_router.post("/tours/book")
 async def book_tour(tour_data: TourBooking):
-    from models.postgresql_models import TourSlot, Tour, Lead
-    from sqlalchemy import select, update
     import uuid
     from datetime import datetime
+
+    from sqlalchemy import select, update
+
+    from models.postgresql_models import Lead, Tour, TourSlot
 
     async with connection_manager.get_session() as session:
         # Get tour slot
@@ -1341,8 +1359,9 @@ async def get_tours(
         )
     )
 ):
-    from models.postgresql_models import Tour
     from sqlalchemy import select
+
+    from models.postgresql_models import Tour
 
     async with connection_manager.get_session() as session:
         result = await session.execute(
@@ -1366,8 +1385,9 @@ async def get_dashboard_stats(
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     this_month = today.replace(day=1)
 
-    from models.postgresql_models import Lead, Page, Form, Tour
-    from sqlalchemy import select, func
+    from sqlalchemy import func, select
+
+    from models.postgresql_models import Form, Lead, Page, Tour
 
     async with connection_manager.get_session() as session:
         # Get stats
@@ -1456,8 +1476,9 @@ async def get_dashboard_stats(
 # Public API routes (no auth required)
 @api_router.get("/public/{tenant_subdomain}/pages/{slug}")
 async def get_public_page(tenant_subdomain: str, slug: str):
-    from models.postgresql_models import Tenant, Page
     from sqlalchemy import select
+
+    from models.postgresql_models import Page, Tenant
 
     async with connection_manager.get_session() as session:
         # Find tenant
@@ -1493,8 +1514,9 @@ async def get_public_page(tenant_subdomain: str, slug: str):
 
 @api_router.get("/public/{tenant_subdomain}/forms/{form_id}")
 async def get_public_form(tenant_subdomain: str, form_id: str):
-    from models.postgresql_models import Tenant, Form
     from sqlalchemy import select
+
+    from models.postgresql_models import Form, Tenant
 
     async with connection_manager.get_session() as session:
         # Find tenant
@@ -1615,8 +1637,9 @@ async def save_page_builder_data(
     cms_engine = CoworkingCMSEngine(connection_manager)
 
     # Validate page exists and belongs to tenant
-    from models.postgresql_models import Page
     from sqlalchemy import select
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         page_result = await session.execute(
@@ -1651,8 +1674,9 @@ async def get_page_builder_data(
     cms_engine = CoworkingCMSEngine(connection_manager)
 
     # Validate page exists and belongs to tenant
-    from models.postgresql_models import Page
     from sqlalchemy import select
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         page_result = await session.execute(
@@ -1692,8 +1716,9 @@ async def render_page_with_blocks(
     cms_engine = CoworkingCMSEngine(connection_manager)
 
     # Validate page exists and belongs to tenant
-    from models.postgresql_models import Page
     from sqlalchemy import select
+
+    from models.postgresql_models import Page
 
     async with connection_manager.get_session() as session:
         page_result = await session.execute(

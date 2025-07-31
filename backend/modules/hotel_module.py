@@ -3,7 +3,8 @@ Hotel Module - Industry-specific experience for hotel meeting spaces
 Transforms the universal platform into a hospitality venue management solution
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from modules.base_module import BaseModule
 
 

@@ -3,17 +3,19 @@ Automation & Communication Kernel (The "Messenger")
 Universal communication and workflow automation engine
 """
 
-from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
+
+from sqlalchemy import delete, func, select, update
+
 from kernels.base_kernel import BaseKernel
-from sqlalchemy import select, update, func, delete
 from models.postgresql_models import (
-    MessageTemplate,
-    Workflow,
-    MessageQueue,
     AutomationLog,
+    MessageQueue,
+    MessageTemplate,
     NotificationPreference,
+    Workflow,
 )
 
 

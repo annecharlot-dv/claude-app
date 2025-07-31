@@ -3,15 +3,16 @@ Communication and Automation API
 Provides endpoints for messaging, workflows, and automation
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, EmailStr, Field
 
 from kernels.communication_kernel import (
     CommunicationKernel,
-    TriggerEvent,
     MessageChannel,
+    TriggerEvent,
 )
 from middleware.tenant_middleware import get_tenant_id_from_request
 
@@ -175,8 +176,9 @@ async def get_template(
 ):
     """Get template by ID"""
     try:
-        from models.postgresql_models import MessageTemplate
         from sqlalchemy import select
+
+        from models.postgresql_models import MessageTemplate
 
         async with comm_kernel.connection_manager.get_session() as session:
             result = await session.execute(
@@ -363,8 +365,9 @@ async def list_messages(
         if status_filter:
             query["status"] = status_filter
 
-        from models.postgresql_models import MessageQueue
         from sqlalchemy import select
+
+        from models.postgresql_models import MessageQueue
 
         async with comm_kernel.connection_manager.get_session() as session:
             query_conditions = [MessageQueue.tenant_id == tenant_id]
@@ -527,8 +530,9 @@ async def get_queue_status(
 ):
     """Get message queue status"""
     try:
+        from sqlalchemy import func, select
+
         from models.postgresql_models import MessageQueue
-        from sqlalchemy import select, func
 
         async with comm_kernel.connection_manager.get_session() as session:
             queued_result = await session.execute(

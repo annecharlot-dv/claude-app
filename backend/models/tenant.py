@@ -3,11 +3,12 @@ Tenant Data Model and Management
 Implements comprehensive multi-tenant data structures and operations
 """
 
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
-from pydantic import BaseModel, Field, validator
-from enum import Enum
 import uuid
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, validator
 
 
 class TenantStatus(str, Enum):
@@ -164,8 +165,9 @@ class TenantRepository:
 
     async def create_tenant(self, tenant_data: TenantModel) -> TenantModel:
         """Create a new tenant"""
-        from models.postgresql_models import Tenant
         from sqlalchemy import select
+
+        from models.postgresql_models import Tenant
 
         async with self.connection_manager.get_session() as session:
             # Check if subdomain already exists
@@ -185,8 +187,9 @@ class TenantRepository:
 
     async def get_tenant_by_id(self, tenant_id: str) -> Optional[TenantModel]:
         """Get tenant by ID"""
-        from models.postgresql_models import Tenant
         from sqlalchemy import select
+
+        from models.postgresql_models import Tenant
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
@@ -195,8 +198,9 @@ class TenantRepository:
 
     async def get_tenant_by_subdomain(self, subdomain: str) -> Optional[TenantModel]:
         """Get tenant by subdomain"""
-        from models.postgresql_models import Tenant
         from sqlalchemy import select
+
+        from models.postgresql_models import Tenant
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -207,8 +211,9 @@ class TenantRepository:
 
     async def update_tenant(self, tenant_id: str, updates: Dict[str, Any]) -> bool:
         """Update tenant data"""
-        from models.postgresql_models import Tenant
         from sqlalchemy import update
+
+        from models.postgresql_models import Tenant
 
         async with self.connection_manager.get_session() as session:
             updates["updated_at"] = datetime.utcnow()
@@ -220,8 +225,9 @@ class TenantRepository:
 
     async def delete_tenant(self, tenant_id: str) -> bool:
         """Soft delete tenant (set status to cancelled)"""
-        from models.postgresql_models import Tenant
         from sqlalchemy import update
+
+        from models.postgresql_models import Tenant
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -240,8 +246,9 @@ class TenantRepository:
         offset: int = 0,
     ) -> List[TenantModel]:
         """List tenants with filtering"""
-        from models.postgresql_models import Tenant
         from sqlalchemy import select
+
+        from models.postgresql_models import Tenant
 
         async with self.connection_manager.get_session() as session:
             query = select(Tenant)
@@ -259,8 +266,9 @@ class TenantRepository:
 
     async def get_tenant_stats(self, tenant_id: str) -> Dict[str, Any]:
         """Get tenant usage statistics"""
-        from models.postgresql_models import User, Booking, Page
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
+
+        from models.postgresql_models import Booking, Page, User
 
         tenant = await self.get_tenant_by_id(tenant_id)
         if not tenant:
@@ -299,8 +307,9 @@ class TenantRepository:
 
     async def update_usage_stats(self, tenant_id: str, stats: Dict[str, Any]):
         """Update tenant usage statistics"""
-        from models.postgresql_models import Tenant
         from sqlalchemy import update
+
+        from models.postgresql_models import Tenant
 
         async with self.connection_manager.get_session() as session:
             stats["updated_at"] = datetime.utcnow()

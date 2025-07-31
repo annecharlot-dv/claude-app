@@ -3,7 +3,8 @@ Creative Studio Module - Industry-specific experience for creative/production st
 Transforms the universal platform into a creative studio management solution
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from .base_module import BaseModule
 
 

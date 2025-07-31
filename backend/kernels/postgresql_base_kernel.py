@@ -3,17 +3,18 @@ PostgreSQL Base Kernel
 Replaces MongoDB-based base kernel with SQLAlchemy operations
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, func, text
-from sqlalchemy.orm import selectinload
-from typing import Dict, Any, List, Optional, Type, Union
-from abc import ABC, abstractmethod
-from datetime import datetime
 import logging
 import uuid
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Type, Union
 
-from models.postgresql_models import Base
+from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from database.postgresql_connection import get_connection_manager
+from models.postgresql_models import Base
 
 logger = logging.getLogger(__name__)
 

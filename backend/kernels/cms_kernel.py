@@ -3,11 +3,13 @@ Content & CMS Kernel
 Universal content management and website building engine
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import delete, select, update
+
 from kernels.base_kernel import BaseKernel
-from models.postgresql_models import Page, Template, Widget, User
-from sqlalchemy import select, update, delete
+from models.postgresql_models import Page, Template, User, Widget
 
 
 class CMSKernel(BaseKernel):

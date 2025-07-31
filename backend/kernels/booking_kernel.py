@@ -3,11 +3,13 @@ Resource & Booking Kernel (The "Scheduler")
 Universal scheduling engine for any type of resource
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import delete, func, select, update
+
 from kernels.base_kernel import BaseKernel
-from models.postgresql_models import User, Booking, Resource, AvailabilitySchedule
-from sqlalchemy import select, update, delete, func
+from models.postgresql_models import AvailabilitySchedule, Booking, Resource, User
 
 
 class BookingKernel(BaseKernel):

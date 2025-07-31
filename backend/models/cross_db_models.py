@@ -3,29 +3,28 @@ Cross-Database SQLAlchemy Models
 Compatible with both PostgreSQL and SQLite for development
 """
 
+import uuid
+from datetime import datetime
+
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Boolean,
-    Text,
-    Integer,
-    ForeignKey,
     JSON,
-    UniqueConstraint,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
     Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import (
-    JSONB,
-    UUID as PG_UUID,
-    TSVECTOR as TSVectorType,
-)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import TSVECTOR as TSVectorType
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.types import TypeDecorator
-import uuid
-from datetime import datetime
 
 Base = declarative_base()
 

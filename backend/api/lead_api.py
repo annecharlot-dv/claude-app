@@ -3,20 +3,21 @@ Lead Management API
 Provides endpoints for lead capture, management, and tour scheduling
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, EmailStr, Field
 
 from kernels.lead_kernel import (
+    FormFieldModel,
+    FormFieldType,
+    FormModel,
     LeadKernel,
     LeadModel,
-    FormModel,
-    TourSlotModel,
-    LeadStatus,
     LeadSource,
-    FormFieldType,
-    FormFieldModel,
+    LeadStatus,
+    TourSlotModel,
 )
 from middleware.tenant_middleware import get_tenant_id_from_request
 

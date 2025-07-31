@@ -4,24 +4,26 @@ Seed demo data for Claude Platform - Complete Space-as-a-Service platform
 """
 import asyncio
 import os
+import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
+
 from dotenv import load_dotenv
+from passlib.context import CryptContext
+from sqlalchemy import delete, select
+
 from database.config.connection_pool import PostgreSQLConnectionManager
 from models.postgresql_models import (
+    Form,
+    Lead,
+    Page,
+    Template,
     Tenant,
+    Tour,
+    TourSlot,
     User,
     UserPassword,
-    Page,
-    Lead,
-    Form,
-    Template,
-    TourSlot,
-    Tour,
 )
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-import uuid
-from sqlalchemy import select, delete
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent

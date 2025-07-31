@@ -3,7 +3,8 @@ Residential Module - Industry-specific experience for residential lofts and home
 Transforms the universal platform into a residential space management solution
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from .base_module import BaseModule
 
 

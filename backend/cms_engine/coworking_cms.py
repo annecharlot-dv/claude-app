@@ -3,8 +3,9 @@ Enhanced CMS System for Coworking Module
 Provides industry-specific content blocks and page building capabilities
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from kernels.base_kernel import BaseKernel
 
 
@@ -17,8 +18,9 @@ class CoworkingCMSEngine(BaseKernel):
 
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        from models.postgresql_models import User
         from sqlalchemy import select
+
+        from models.postgresql_models import User
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -535,8 +537,9 @@ class CoworkingCMSEngine(BaseKernel):
 
         elif block_type == "community_stats":
             # Fetch real community statistics
+            from sqlalchemy import func, select
+
             from models.postgresql_models import User
-            from sqlalchemy import select, func
 
             async with self.connection_manager.get_session() as session:
                 member_count_result = await session.execute(

@@ -3,9 +3,10 @@ Health Check API
 Provides comprehensive health monitoring for all platform components
 """
 
-from fastapi import APIRouter, Depends, Request
-from typing import Dict, Any
 from datetime import datetime
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, Request
 
 from middleware.tenant_middleware import get_tenant_id_from_request
 

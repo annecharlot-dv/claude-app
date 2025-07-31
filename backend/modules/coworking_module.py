@@ -3,7 +3,8 @@ Coworking Module - Industry-specific experience for coworking spaces
 Transforms the universal platform into a coworking-focused solution
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from modules.base_module import BaseModule
 
 

@@ -10,8 +10,9 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from database.postgresql_connection import PostgreSQLConnectionManager
 from sqlalchemy import func, select, text
+
+from database.postgresql_connection import PostgreSQLConnectionManager
 
 logger = logging.getLogger(__name__)
 
@@ -147,8 +148,9 @@ class DatabaseOptimizer:
         try:
             async with self.connection_manager.get_session() as session:
                 if table_name == "pages":
-                    from models.postgresql_models import Page
                     from sqlalchemy import select
+
+                    from models.postgresql_models import Page
 
                     query = select(Page)
                     if query_filter.get("tenant_id"):
@@ -166,8 +168,9 @@ class DatabaseOptimizer:
                     data = result.scalars().all()
 
                 elif table_name == "leads":
-                    from models.postgresql_models import Lead
                     from sqlalchemy import select
+
+                    from models.postgresql_models import Lead
 
                     query = select(Lead)
                     if query_filter.get("tenant_id"):

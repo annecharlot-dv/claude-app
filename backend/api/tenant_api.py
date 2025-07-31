@@ -3,28 +3,29 @@ Tenant Management API
 Provides endpoints for tenant provisioning, configuration, and management
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
+
+from kernels.identity_kernel import IdentityKernel
+from middleware.tenant_middleware import (
+    TenantSecurityValidator,
+    get_tenant_from_request,
+    get_tenant_id_from_request,
+)
 from models.tenant import (
+    IndustryType,
+    SubscriptionPlan,
+    TenantBranding,
+    TenantFeatures,
     TenantModel,
     TenantRepository,
     TenantService,
-    TenantStatus,
-    SubscriptionPlan,
-    IndustryType,
     TenantSettings,
-    TenantBranding,
-    TenantFeatures,
+    TenantStatus,
 )
-from middleware.tenant_middleware import (
-    get_tenant_from_request,
-    get_tenant_id_from_request,
-    TenantSecurityValidator,
-)
-from kernels.identity_kernel import IdentityKernel
 
 router = APIRouter(prefix="/api/tenants", tags=["tenants"])
 

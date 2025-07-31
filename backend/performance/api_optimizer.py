@@ -6,10 +6,10 @@ Implements response caching, compression, and optimization middleware
 import asyncio
 import gzip
 import json
-import time
-from typing import Dict, Any, Optional, Callable
-
 import logging
+import time
+from typing import Any, Callable, Dict, Optional
+
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware

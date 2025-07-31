@@ -4,13 +4,13 @@ Automated performance tests with benchmarks and reporting
 """
 
 import asyncio
-import time
-import statistics
-from typing import Dict, List, Any, Callable
-from dataclasses import dataclass
 import json
 import logging
+import statistics
+import time
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Callable, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -322,8 +322,9 @@ class DatabasePerformanceTests:
 
     async def _test_user_query(self):
         """Test user query performance"""
-        from models.postgresql_models import User
         from sqlalchemy import select
+
+        from models.postgresql_models import User
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -335,8 +336,9 @@ class DatabasePerformanceTests:
 
     async def _test_page_query(self):
         """Test page query performance"""
-        from models.postgresql_models import Page
         from sqlalchemy import select
+
+        from models.postgresql_models import Page
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -348,8 +350,9 @@ class DatabasePerformanceTests:
 
     async def _test_lead_query(self):
         """Test lead query performance"""
-        from models.postgresql_models import Lead
         from sqlalchemy import select
+
+        from models.postgresql_models import Lead
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(

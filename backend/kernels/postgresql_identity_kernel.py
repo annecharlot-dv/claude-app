@@ -3,15 +3,17 @@ PostgreSQL Identity & Authentication Kernel (The "Gatekeeper")
 Universal user management and authentication system - PostgreSQL Version
 """
 
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
-from kernels.postgresql_base_kernel import PostgreSQLBaseKernel
-from models.postgresql_models import User, Tenant, UserPassword
-from passlib.context import CryptContext
-from sqlalchemy import select, and_
-import jwt
-import uuid
 import logging
+import uuid
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+import jwt
+from passlib.context import CryptContext
+from sqlalchemy import and_, select
+
+from kernels.postgresql_base_kernel import PostgreSQLBaseKernel
+from models.postgresql_models import Tenant, User, UserPassword
 
 logger = logging.getLogger(__name__)
 

@@ -3,8 +3,8 @@ Base Module - Abstract base class for all industry modules
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class BaseModule(ABC):

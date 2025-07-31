@@ -3,20 +3,22 @@ Financial Kernel (The "Ledger")
 Universal financial management and billing engine
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import and_, select, update
+
 from kernels.base_kernel import BaseKernel
 from models.postgresql_models import (
     Invoice,
     LineItem,
-    Transaction,
-    Subscription,
-    Product,
     Payment,
+    Product,
+    Subscription,
+    Transaction,
     User,
 )
-from sqlalchemy import select, update, and_
 
 
 class FinancialKernel(BaseKernel):

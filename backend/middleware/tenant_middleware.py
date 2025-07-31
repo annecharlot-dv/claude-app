@@ -237,7 +237,7 @@ class TenantAwareRepository:
 
     async def count_documents(self, query_conditions: list, tenant_id: str) -> int:
         """Count documents with tenant filtering"""
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
 
         async with self.connection_manager.get_session() as session:
             conditions = [self.model_class.tenant_id == tenant_id] + query_conditions

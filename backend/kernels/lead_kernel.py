@@ -3,12 +3,14 @@ Lead Management Kernel
 Handles lead capture, processing, scoring, and tour scheduling
 """
 
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
-from kernels.base_kernel import BaseKernel
-from pydantic import BaseModel, Field, EmailStr
-from enum import Enum
 import uuid
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, EmailStr, Field
+
+from kernels.base_kernel import BaseKernel
 
 
 class LeadStatus(str, Enum):
@@ -168,8 +170,9 @@ class LeadKernel(BaseKernel):
                     setattr(lead, key, value)
                 updates["score"] = await self._calculate_lead_score(lead)
 
-        from models.postgresql_models import Lead
         from sqlalchemy import update
+
+        from models.postgresql_models import Lead
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -186,8 +189,9 @@ class LeadKernel(BaseKernel):
 
     async def get_lead_by_id(self, tenant_id: str, lead_id: str) -> Optional[LeadModel]:
         """Get lead by ID"""
-        from models.postgresql_models import Lead
         from sqlalchemy import select
+
+        from models.postgresql_models import Lead
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -215,8 +219,9 @@ class LeadKernel(BaseKernel):
         if source:
             query["source"] = source
 
-        from models.postgresql_models import Lead
         from sqlalchemy import select
+
+        from models.postgresql_models import Lead
 
         async with self.connection_manager.get_session() as session:
             query_conditions = [Lead.tenant_id == tenant_id]
@@ -239,8 +244,9 @@ class LeadKernel(BaseKernel):
 
     async def assign_lead(self, tenant_id: str, lead_id: str, user_id: str) -> bool:
         """Assign lead to a user"""
-        from models.postgresql_models import Lead
         from sqlalchemy import update
+
+        from models.postgresql_models import Lead
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -338,8 +344,9 @@ class LeadKernel(BaseKernel):
 
     async def get_form_by_id(self, tenant_id: str, form_id: str) -> Optional[FormModel]:
         """Get form by ID"""
-        from models.postgresql_models import Form
         from sqlalchemy import select
+
+        from models.postgresql_models import Form
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -356,8 +363,9 @@ class LeadKernel(BaseKernel):
         if active_only:
             query["is_active"] = True
 
-        from models.postgresql_models import Form
         from sqlalchemy import select
+
+        from models.postgresql_models import Form
 
         async with self.connection_manager.get_session() as session:
             query_conditions = [Form.tenant_id == tenant_id]
@@ -455,8 +463,9 @@ class LeadKernel(BaseKernel):
         staff_user_id: Optional[str] = None,
     ) -> List[TourSlotModel]:
         """Get available tour slots"""
+        from sqlalchemy import and_, select
+
         from models.postgresql_models import TourSlot
-        from sqlalchemy import select, and_
 
         async with self.connection_manager.get_session() as session:
             query_conditions = [
@@ -484,8 +493,9 @@ class LeadKernel(BaseKernel):
         notes: Optional[str] = None,
     ) -> bool:
         """Schedule a tour for a lead"""
-        from models.postgresql_models import TourSlot, Lead
         from sqlalchemy import select, update
+
+        from models.postgresql_models import Lead, TourSlot
 
         async with self.connection_manager.get_session() as session:
             # Check if slot is available
@@ -555,8 +565,9 @@ class LeadKernel(BaseKernel):
         if notes:
             updates["tour_notes"] = notes
 
-        from models.postgresql_models import Lead
         from sqlalchemy import update
+
+        from models.postgresql_models import Lead
 
         async with self.connection_manager.get_session() as session:
             result = await session.execute(

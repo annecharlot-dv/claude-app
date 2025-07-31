@@ -82,8 +82,9 @@ class PostgreSQLAdapter:
     ) -> Optional[Dict[str, Any]]:
         """Get user by email with tenant filtering"""
 
-        from models.postgresql_models import User
         from sqlalchemy import select
+
+        from models.postgresql_models import User
 
         async with self.conn_manager.get_session() as session:
             result = await session.execute(
@@ -97,8 +98,9 @@ class PostgreSQLAdapter:
     ) -> Optional[Dict[str, Any]]:
         """Get user by ID with tenant filtering"""
 
-        from models.postgresql_models import User
         from sqlalchemy import select
+
+        from models.postgresql_models import User
 
         async with self.conn_manager.get_session() as session:
             result = await session.execute(
@@ -162,8 +164,9 @@ class PostgreSQLAdapter:
     ) -> Optional[Dict[str, Any]]:
         """Get page by slug with tenant filtering"""
 
-        from models.postgresql_models import Page
         from sqlalchemy import select
+
+        from models.postgresql_models import Page
 
         async with self.conn_manager.get_session() as session:
             result = await session.execute(
@@ -249,8 +252,9 @@ class PostgreSQLAdapter:
     ) -> Optional[Dict[str, Any]]:
         """Get lead by email with tenant filtering"""
 
-        from models.postgresql_models import Lead
         from sqlalchemy import select
+
+        from models.postgresql_models import Lead
 
         async with self.conn_manager.get_session() as session:
             result = await session.execute(

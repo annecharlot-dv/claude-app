@@ -4,11 +4,13 @@ Seed Phase 2 demo data - Enhanced member profiles, events, and community feature
 """
 import asyncio
 import os
-from pathlib import Path
-from dotenv import load_dotenv
-from database.config.connection_pool import PostgreSQLConnectionManager
-from datetime import datetime, timedelta
 import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+from database.config.connection_pool import PostgreSQLConnectionManager
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
@@ -21,8 +23,9 @@ connection_manager = PostgreSQLConnectionManager()
 async def seed_phase2_data():
     print("🌱 Seeding Phase 2 demo data...")
 
-    from models.postgresql_models import Tenant, User
     from sqlalchemy import select
+
+    from models.postgresql_models import Tenant, User
 
     async with connection_manager.get_session() as session:
         # Find demo tenant

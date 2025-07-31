@@ -2,17 +2,18 @@
 Claude Platform Core - Integrates kernels with modules for complete experience orchestration
 """
 
-from typing import Dict, Any, Optional, List
-from sqlalchemy.ext.asyncio import AsyncSession
 import os
 import uuid
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernels import (
-    IdentityKernel,
     BookingKernel,
-    FinancialKernel,
     CMSKernel,
     CommunicationKernel,
+    FinancialKernel,
+    IdentityKernel,
 )
 from kernels.lead_kernel import LeadKernel
 from modules import BaseModule
@@ -67,8 +68,9 @@ class ClaudePlatformCore:
             return self.active_modules[tenant_id]
 
         # Get tenant data
-        from models.postgresql_models import Tenant
         from sqlalchemy import select
+
+        from models.postgresql_models import Tenant
 
         result = await self.session.execute(
             select(Tenant).where(Tenant.id == tenant_id)
@@ -164,8 +166,9 @@ class ClaudePlatformCore:
             metric_name = metric_config["name"]
 
             # Calculate metric based on type and name
-            from models.postgresql_models import User, Booking, Page, Lead
-            from sqlalchemy import select, func
+            from sqlalchemy import func, select
+
+            from models.postgresql_models import Booking, Lead, Page, User
 
             if metric_name == "active_users" or metric_name == "active_members":
                 result = await self.session.execute(
@@ -209,8 +212,9 @@ class ClaudePlatformCore:
         for name, kernel in self.kernels.items():
             kernel_health[name] = await kernel.get_kernel_health()
 
+        from sqlalchemy import func, select
+
         from models.postgresql_models import Tenant
-        from sqlalchemy import select, func
 
         result = await self.session.execute(
             select(func.count(Tenant.id)).where(Tenant.is_active == True)

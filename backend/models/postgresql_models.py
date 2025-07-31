@@ -3,25 +3,28 @@ SQLAlchemy Models for PostgreSQL
 Replaces Pydantic models with proper relational models
 """
 
+import uuid
+from datetime import datetime
+
 from sqlalchemy import (
-    Column,
-    String,
-    DateTime,
-    Boolean,
-    Text,
-    Integer,
-    ForeignKey,
     JSON,
-    UniqueConstraint,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
     Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID, TSVECTOR as TSVectorType
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import TSVECTOR as TSVectorType
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
-from datetime import datetime
+from sqlalchemy.types import TypeDecorator
 
 Base = declarative_base()
 

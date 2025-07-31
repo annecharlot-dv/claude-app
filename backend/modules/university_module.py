@@ -3,7 +3,8 @@ University Module - Industry-specific experience for university campus facilitie
 Transforms the universal platform into an academic facility management solution
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from .base_module import BaseModule
 
 

@@ -12,8 +12,9 @@ from pathlib import Path
 # Add the backend directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from database.config.connection_pool import PostgreSQLConnectionManager
 from dotenv import load_dotenv
+
+from database.config.connection_pool import PostgreSQLConnectionManager
 from performance.database_optimizer import get_db_optimizer
 from performance.monitor import get_performance_monitor
 from performance.test_suite import run_performance_tests
@@ -52,8 +53,9 @@ async def create_test_data(connection_manager):
 
     import uuid
 
-    from models.postgresql_models import Lead, Page, Tenant, User
     from sqlalchemy import delete
+
+    from models.postgresql_models import Lead, Page, Tenant, User
 
     async with connection_manager.get_session() as session:
         # Clear existing test data
@@ -124,8 +126,9 @@ async def cleanup_test_data(connection_manager):
     """Clean up test data"""
     logger.info("Cleaning up test data...")
 
-    from models.postgresql_models import Tenant, User, Page, Lead
     from sqlalchemy import delete
+
+    from models.postgresql_models import Lead, Page, Tenant, User
 
     async with connection_manager.get_session() as session:
         await session.execute(delete(Lead).where(Lead.tenant_id == "test_tenant"))

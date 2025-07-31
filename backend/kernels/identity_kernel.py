@@ -3,13 +3,15 @@ Identity & Authentication Kernel
 Manages users, roles, permissions, and authentication across all tenants
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 import jwt
 from passlib.context import CryptContext
-from kernels.base_kernel import BaseKernel
-from models.postgresql_models import User, UserPassword, Tenant
 from sqlalchemy import select, update
+
+from kernels.base_kernel import BaseKernel
+from models.postgresql_models import Tenant, User, UserPassword
 
 
 class IdentityKernel(BaseKernel):
