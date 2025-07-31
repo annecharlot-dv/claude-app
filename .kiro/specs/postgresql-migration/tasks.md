@@ -152,7 +152,7 @@
   - _Requirements: 16.5, 16.6_
 
 - [ ] 7.1 Update Environment Configuration Files
-  - Replace MONGO_URL with DATABASE_URL in .env files
+  - Replace DATABASE_URL with PostgreSQL connection string in .env files
   - Update all configuration references from MongoDB to PostgreSQL
   - Add PostgreSQL-specific environment variables for connection pooling
   - _Requirements: 16.5, 16.6_

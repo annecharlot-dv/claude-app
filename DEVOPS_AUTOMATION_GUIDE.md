@@ -249,8 +249,7 @@ SNYK_TOKEN           # Snyk security scanning token
 #### Vercel Environment Variables
 ```
 SECRET_KEY           # JWT secret key
-MONGO_URL           # MongoDB connection string
-DB_NAME             # Database name
+DATABASE_URL         # PostgreSQL connection string
 REDIS_URL           # Redis cache URL
 API_URL             # API base URL
 ```
