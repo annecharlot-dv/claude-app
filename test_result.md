@@ -1,6 +1,6 @@
-#====================================================================================================
+# ====================================================================================================
 # START - Testing Protocol - DO NOT EDIT OR REMOVE THIS SECTION
-#====================================================================================================
+# ====================================================================================================
 
 # THIS SECTION CONTAINS CRITICAL TESTING INSTRUCTIONS FOR BOTH AGENTS
 # BOTH MAIN_AGENT AND TESTING_AGENT MUST PRESERVE THIS ENTIRE BLOCK
@@ -92,15 +92,15 @@
 #
 # IMPORTANT: Main agent must ALWAYS update test_result.md BEFORE calling the testing agent, as it relies on this file to understand what to test next.
 
-#====================================================================================================
+# ====================================================================================================
 # END - Testing Protocol - DO NOT EDIT OR REMOVE THIS SECTION
-#====================================================================================================
+# ====================================================================================================
 
 
 
-#====================================================================================================
+# ====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
-#====================================================================================================
+# ====================================================================================================
 
 ## user_problem_statement: Implement the Core-Module Architecture for the Claude Platform - a comprehensive Space-as-a-Service platform that serves multiple industries (coworking, government, hotel, etc.) through universal kernels and industry-specific experience modules.
 

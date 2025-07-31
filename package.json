@@ -1,11 +1,10 @@
 {
   "dependencies": {
     "@modelcontextprotocol/server-github": "^2025.4.8",
-    "@payloadcms/db-postgres": "^3.49.1",
-    "@payloadcms/richtext-slate": "^3.49.1",
+    "@payloadcms/richtext-slate": "^1.5.2",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "payload": "^3.49.1"
+    "payload": "^2.32.3"
   },
   "devDependencies": {
     "@eslint/css": "^0.10.0",
