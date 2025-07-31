@@ -252,8 +252,8 @@ class PerformanceTester:
 class DatabasePerformanceTests:
     """Database-specific performance tests"""
     
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, connection_manager):
+        self.connection_manager = connection_manager
         self.tester = PerformanceTester()
         self._setup_tests()
     
@@ -299,18 +299,45 @@ class DatabasePerformanceTests:
     
     async def _test_user_query(self):
         """Test user query performance"""
-        await self.db.users.find({"tenant_id": "test_tenant", "is_active": True}).to_list(100)
+        from backend.models.postgresql_models import User
+        from sqlalchemy import select
+        
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(
+                    User.tenant_id == "test_tenant",
+                    User.is_active == True
+                ).limit(100)
+            )
+            users = result.scalars().all()
     
     async def _test_page_query(self):
         """Test page query performance"""
-        await self.db.pages.find({"tenant_id": "test_tenant", "status": "published"}).to_list(100)
+        from backend.models.postgresql_models import Page
+        from sqlalchemy import select
+        
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Page).where(
+                    Page.tenant_id == "test_tenant",
+                    Page.status == "published"
+                ).limit(100)
+            )
+            pages = result.scalars().all()
     
     async def _test_lead_query(self):
         """Test lead query performance"""
-        await self.db.leads.find({
-            "tenant_id": "test_tenant",
-            "status": "new_inquiry"
-        }).sort("created_at", -1).to_list(50)
+        from backend.models.postgresql_models import Lead
+        from sqlalchemy import select
+        
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Lead).where(
+                    Lead.tenant_id == "test_tenant",
+                    Lead.status == "new_inquiry"
+                ).order_by(Lead.created_at.desc()).limit(50)
+            )
+            leads = result.scalars().all()
     
     async def run_tests(self) -> Dict[str, Any]:
         """Run all database performance tests"""
@@ -377,16 +404,16 @@ class APIPerformanceTests:
         return self.tester.generate_report()
 
 # Global performance test runner
-async def run_performance_tests(db=None, client=None) -> Dict[str, Any]:
+async def run_performance_tests(connection_manager=None, client=None) -> Dict[str, Any]:
     """Run comprehensive performance tests"""
     results = {
         "timestamp": datetime.utcnow().isoformat(),
         "tests": {}
     }
     
-    if db:
+    if connection_manager:
         logger.info("Running database performance tests")
-        db_tests = DatabasePerformanceTests(db)
+        db_tests = DatabasePerformanceTests(connection_manager)
         results["tests"]["database"] = await db_tests.run_tests()
     
     if client:

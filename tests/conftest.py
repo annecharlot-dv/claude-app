@@ -5,15 +5,17 @@ import pytest
 import asyncio
 import os
 from typing import AsyncGenerator, Dict, Any
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from database.config.connection_pool import PostgreSQLConnectionManager
+from backend.models.postgresql_models import Base, Tenant, User, Page, Lead, Form, Tour, TourSlot
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock
 import jwt
 from datetime import datetime, timedelta
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 # Test database configuration
-TEST_DB_URL = os.getenv("TEST_MONGO_URL", "mongodb://localhost:27017")
-TEST_DB_NAME = "claude_platform_test"
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql://localhost:5432/claude_platform_test")
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -23,31 +25,36 @@ def event_loop():
     loop.close()
 
 @pytest.fixture(scope="session")
-async def test_db() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
+async def test_db() -> AsyncGenerator[AsyncSession, None]:
     """Create test database connection"""
-    client = AsyncIOMotorClient(TEST_DB_URL)
-    db = client[TEST_DB_NAME]
+    engine = create_async_engine(TEST_DATABASE_URL)
     
-    # Clean up any existing test data
-    await db.drop_collection("users")
-    await db.drop_collection("tenants")
-    await db.drop_collection("bookings")
-    await db.drop_collection("spaces")
-    await db.drop_collection("audit_logs")
-    await db.drop_collection("cms_pages")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     
-    yield db
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    async_session = async_sessionmaker(engine, expire_on_commit=False)
+    
+    async with async_session() as session:
+        yield session
     
     # Cleanup after tests
-    await client.drop_database(TEST_DB_NAME)
-    client.close()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
 
 @pytest.fixture
-async def clean_db(test_db: AsyncIOMotorDatabase):
+async def clean_db(test_db: AsyncSession):
     """Clean database before each test"""
-    collections = await test_db.list_collection_names()
-    for collection_name in collections:
-        await test_db[collection_name].delete_many({})
+    from sqlalchemy import delete
+    await test_db.execute(delete(Tour))
+    await test_db.execute(delete(TourSlot))
+    await test_db.execute(delete(Lead))
+    await test_db.execute(delete(Form))
+    await test_db.execute(delete(Page))
+    await test_db.execute(delete(User))
+    await test_db.execute(delete(Tenant))
+    await test_db.commit()
     yield test_db
 
 @pytest.fixture
@@ -90,10 +97,12 @@ def test_tenants() -> Dict[str, Dict[str, Any]]:
     }
 
 @pytest.fixture
-async def seed_tenants(clean_db: AsyncIOMotorDatabase, test_tenants: Dict[str, Dict[str, Any]]):
+async def seed_tenants(clean_db: AsyncSession, test_tenants: Dict[str, Dict[str, Any]]):
     """Seed test tenants"""
     for tenant_data in test_tenants.values():
-        await clean_db.tenants.insert_one(tenant_data)
+        tenant = Tenant(**tenant_data)
+        clean_db.add(tenant)
+    await clean_db.commit()
     return test_tenants
 
 @pytest.fixture
@@ -135,10 +144,12 @@ def test_users() -> Dict[str, Dict[str, Any]]:
     }
 
 @pytest.fixture
-async def seed_users(clean_db: AsyncIOMotorDatabase, test_users: Dict[str, Dict[str, Any]]):
+async def seed_users(clean_db: AsyncSession, test_users: Dict[str, Dict[str, Any]]):
     """Seed test users"""
     for user_data in test_users.values():
-        await clean_db.users.insert_one(user_data)
+        user = User(**user_data)
+        clean_db.add(user)
+    await clean_db.commit()
     return test_users
 
 @pytest.fixture
@@ -207,10 +218,12 @@ def test_spaces() -> Dict[str, Dict[str, Any]]:
     }
 
 @pytest.fixture
-async def seed_spaces(clean_db: AsyncIOMotorDatabase, test_spaces: Dict[str, Dict[str, Any]]):
+async def seed_spaces(clean_db: AsyncSession, test_spaces: Dict[str, Dict[str, Any]]):
     """Seed test spaces"""
     for space_data in test_spaces.values():
-        await clean_db.spaces.insert_one(space_data)
+        space = Page(**space_data)
+        clean_db.add(space)
+    await clean_db.commit()
     return test_spaces
 
 @pytest.fixture

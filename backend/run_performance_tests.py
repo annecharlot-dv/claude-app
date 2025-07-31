@@ -12,7 +12,7 @@ from pathlib import Path
 # Add the backend directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from motor.motor_asyncio import AsyncIOMotorClient
+from database.config.connection_pool import PostgreSQLConnectionManager
 from performance.test_suite import run_performance_tests
 from performance.database_optimizer import get_db_optimizer
 from performance.monitor import get_performance_monitor
@@ -32,105 +32,113 @@ async def setup_test_environment():
     """Setup test environment with sample data"""
     logger.info("Setting up test environment...")
     
-    # Connect to database
-    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
-    client = AsyncIOMotorClient(mongo_url)
-    db = client[os.environ.get('DB_NAME', 'claude_test')]
+    # Connect to PostgreSQL database
+    connection_manager = PostgreSQLConnectionManager()
     
     # Initialize performance systems
-    db_optimizer = await get_db_optimizer(db)
+    db_optimizer = await get_db_optimizer(connection_manager)
     monitor = await get_performance_monitor()
     await monitor.start_monitoring()
     
     # Create test data
-    await create_test_data(db)
+    await create_test_data(connection_manager)
     
-    return db, client
+    return connection_manager
 
-async def create_test_data(db):
+async def create_test_data(connection_manager):
     """Create test data for performance testing"""
     logger.info("Creating test data...")
     
-    # Create test tenant
-    test_tenant = {
-        "id": "test_tenant",
-        "name": "Test Tenant",
-        "subdomain": "test",
-        "industry_module": "coworking",
-        "is_active": True
-    }
-    await db.tenants.replace_one({"id": "test_tenant"}, test_tenant, upsert=True)
+    from backend.models.postgresql_models import Tenant, User, Page, Lead
+    from sqlalchemy import delete
+    import uuid
     
-    # Create test users
-    test_users = []
-    for i in range(100):
-        user = {
-            "id": f"user_{i}",
-            "tenant_id": "test_tenant",
-            "email": f"user{i}@test.com",
-            "first_name": f"User",
-            "last_name": f"{i}",
-            "role": "member",
-            "is_active": True
-        }
-        test_users.append(user)
-    
-    await db.users.delete_many({"tenant_id": "test_tenant"})
-    await db.users.insert_many(test_users)
-    
-    # Create test pages
-    test_pages = []
-    for i in range(50):
-        page = {
-            "id": f"page_{i}",
-            "tenant_id": "test_tenant",
-            "title": f"Test Page {i}",
-            "slug": f"test-page-{i}",
-            "status": "published",
-            "content_blocks": [{"type": "text", "content": f"Content for page {i}"}],
-            "searchKeywords": f"test page {i} content"
-        }
-        test_pages.append(page)
-    
-    await db.pages.delete_many({"tenant_id": "test_tenant"})
-    await db.pages.insert_many(test_pages)
-    
-    # Create test leads
-    test_leads = []
-    for i in range(200):
-        lead = {
-            "id": f"lead_{i}",
-            "tenant_id": "test_tenant",
-            "first_name": f"Lead",
-            "last_name": f"{i}",
-            "email": f"lead{i}@test.com",
-            "status": "new_inquiry" if i % 3 == 0 else "converted",
-            "source": "website"
-        }
-        test_leads.append(lead)
-    
-    await db.leads.delete_many({"tenant_id": "test_tenant"})
-    await db.leads.insert_many(test_leads)
-    
-    logger.info("Test data created successfully")
+    async with connection_manager.get_session() as session:
+        # Clear existing test data
+        await session.execute(delete(Lead).where(Lead.tenant_id == "test_tenant"))
+        await session.execute(delete(Page).where(Page.tenant_id == "test_tenant"))
+        await session.execute(delete(User).where(User.tenant_id == "test_tenant"))
+        await session.execute(delete(Tenant).where(Tenant.id == "test_tenant"))
+        await session.commit()
+        
+        # Create test tenant
+        test_tenant = Tenant(
+            id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+            name="Test Tenant",
+            subdomain="test",
+            industry_module="coworking",
+            is_active=True
+        )
+        session.add(test_tenant)
+        await session.commit()
+        
+        # Create test users
+        for i in range(100):
+            user = User(
+                id=uuid.uuid4(),
+                tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                email=f"user{i}@test.com",
+                first_name="User",
+                last_name=str(i),
+                role="member",
+                is_active=True
+            )
+            session.add(user)
+        
+        await session.commit()
+        
+        # Create test pages
+        for i in range(50):
+            page = Page(
+                id=uuid.uuid4(),
+                tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                title=f"Test Page {i}",
+                slug=f"test-page-{i}",
+                status="published",
+                content_blocks=[{"type": "text", "content": f"Content for page {i}"}]
+            )
+            session.add(page)
+        
+        await session.commit()
+        
+        # Create test leads
+        for i in range(200):
+            lead = Lead(
+                id=uuid.uuid4(),
+                tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                first_name="Lead",
+                last_name=str(i),
+                email=f"lead{i}@test.com",
+                status="new_inquiry" if i % 3 == 0 else "converted",
+                source="website"
+            )
+            session.add(lead)
+        
+        await session.commit()
+        logger.info("Test data created successfully")
 
-async def cleanup_test_data(db):
+async def cleanup_test_data(connection_manager):
     """Clean up test data"""
     logger.info("Cleaning up test data...")
     
-    await db.tenants.delete_many({"id": "test_tenant"})
-    await db.users.delete_many({"tenant_id": "test_tenant"})
-    await db.pages.delete_many({"tenant_id": "test_tenant"})
-    await db.leads.delete_many({"tenant_id": "test_tenant"})
+    from backend.models.postgresql_models import Tenant, User, Page, Lead
+    from sqlalchemy import delete
+    
+    async with connection_manager.get_session() as session:
+        await session.execute(delete(Lead).where(Lead.tenant_id == "test_tenant"))
+        await session.execute(delete(Page).where(Page.tenant_id == "test_tenant"))
+        await session.execute(delete(User).where(User.tenant_id == "test_tenant"))
+        await session.execute(delete(Tenant).where(Tenant.id == "test_tenant"))
+        await session.commit()
     
     logger.info("Test data cleaned up")
 
-async def run_benchmark_tests(db):
+async def run_benchmark_tests(connection_manager):
     """Run comprehensive benchmark tests"""
     logger.info("Running benchmark tests...")
     
     # Run performance tests
-    results = await run_performance_tests(db=db)
+    results = await run_performance_tests(connection_manager=connection_manager)
     
     # Generate detailed report
     report = {
@@ -138,7 +146,7 @@ async def run_benchmark_tests(db):
             "timestamp": results["timestamp"],
             "total_tests": len(results.get("tests", {}).get("database", {}).get("results", [])),
             "environment": {
-                "database": "MongoDB",
+                "database": "PostgreSQL",
                 "python_version": sys.version,
                 "platform": sys.platform
             }
@@ -181,10 +189,10 @@ async def main():
     """Main test runner"""
     try:
         # Setup test environment
-        db, client = await setup_test_environment()
+        connection_manager = await setup_test_environment()
         
         # Run benchmark tests
-        report = await run_benchmark_tests(db)
+        report = await run_benchmark_tests(connection_manager)
         
         # Print results
         print_performance_report(report)
@@ -216,8 +224,7 @@ async def main():
     finally:
         # Cleanup
         try:
-            await cleanup_test_data(db)
-            client.close()
+            await cleanup_test_data(connection_manager)
         except:
             pass
 

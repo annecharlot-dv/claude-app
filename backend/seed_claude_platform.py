@@ -6,19 +6,19 @@ import asyncio
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
+from database.config.connection_pool import PostgreSQLConnectionManager
+from backend.models.postgresql_models import Tenant, User, UserPassword, Page, Lead, Form, Template, TourSlot, Tour
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import uuid
+from sqlalchemy import select, delete
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # Database connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+connection_manager = PostgreSQLConnectionManager()
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -26,16 +26,18 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 async def seed_claude_platform():
     print("🏢 Seeding Claude Platform - Space-as-a-Service Demo Data...")
     
-    # Clear existing data
-    await db.tenants.delete_many({})
-    await db.users.delete_many({})
-    await db.user_passwords.delete_many({})
-    await db.pages.delete_many({})
-    await db.forms.delete_many({})
-    await db.leads.delete_many({})
-    await db.tour_slots.delete_many({})
-    await db.tours.delete_many({})
-    await db.templates.delete_many({})
+    async with connection_manager.get_session() as session:
+        # Clear existing data
+        await session.execute(delete(Tour))
+        await session.execute(delete(TourSlot))
+        await session.execute(delete(Lead))
+        await session.execute(delete(Form))
+        await session.execute(delete(Page))
+        await session.execute(delete(Template))
+        await session.execute(delete(UserPassword))
+        await session.execute(delete(User))
+        await session.execute(delete(Tenant))
+        await session.commit()
     
     # Create industry templates
     templates = [
@@ -138,7 +140,8 @@ async def seed_claude_platform():
     ]
     
     for template in templates:
-        await db.templates.insert_one(template)
+        session.add(template)
+        await session.commit()
         print(f"✅ Created template: {template['name']}")
     
     # Create demo tenants for different industries
@@ -289,7 +292,9 @@ async def seed_claude_platform():
             },
             "created_at": datetime.utcnow()
         }
-        await db.tenants.insert_one(tenant)
+        tenant_obj = Tenant(**tenant)
+        session.add(tenant_obj)
+        await session.commit()
         created_tenants.append(tenant)
         
         # Create admin user
@@ -308,11 +313,15 @@ async def seed_claude_platform():
             },
             "created_at": datetime.utcnow()
         }
-        await db.users.insert_one(admin_user)
-        await db.user_passwords.insert_one({
-            "user_id": admin_user["id"],
-            "hashed_password": hashed_password
-        })
+        admin_user_obj = User(**admin_user)
+        session.add(admin_user_obj)
+        
+        user_password = UserPassword(
+            user_id=admin_user["id"],
+            hashed_password=hashed_password
+        )
+        session.add(user_password)
+        await session.commit()
         
         # Create additional staff users
         staff_users = [
@@ -342,18 +351,23 @@ async def seed_claude_platform():
                 "profile": {},
                 "created_at": datetime.utcnow()
             }
-            await db.users.insert_one(staff_user)
-            await db.user_passwords.insert_one({
-                "user_id": staff_user["id"],
-                "hashed_password": pwd_context.hash("password123")
-            })
+            staff_user_obj = User(**staff_user)
+            session.add(staff_user_obj)
+            
+            user_password = UserPassword(
+                user_id=staff_user["id"],
+                hashed_password=pwd_context.hash("password123")
+            )
+            session.add(user_password)
+            await session.commit()
         
         print(f"✅ Created tenant: {tenant['name']} with {len(staff_users) + 1} users")
     
     # Create pages for each tenant
     for tenant in created_tenants:
         # Get appropriate template
-        template = await db.templates.find_one({"industry_module": tenant["industry_module"]})
+        result = await session.execute(select(Template).where(Template.industry_module == tenant["industry_module"]))
+        template = result.scalar_one_or_none()
         
         # Create homepage
         if tenant["industry_module"] == "coworking":
@@ -472,7 +486,9 @@ async def seed_claude_platform():
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
-        await db.pages.insert_one(homepage)
+        homepage_obj = Page(**homepage)
+        session.add(homepage_obj)
+        await session.commit()
         
         # Create additional pages
         additional_pages = [
@@ -520,7 +536,9 @@ async def seed_claude_platform():
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }
-            await db.pages.insert_one(page)
+            page_obj = Page(**page)
+            session.add(page_obj)
+            await session.commit()
         
         print(f"✅ Created {len(additional_pages) + 1} pages for {tenant['name']}")
     
@@ -765,7 +783,9 @@ async def seed_claude_platform():
                 "is_active": True,
                 "created_at": datetime.utcnow()
             }
-            await db.forms.insert_one(form)
+            form_obj = Form(**form)
+            session.add(form_obj)
+            await session.commit()
         
         print(f"✅ Created {len(forms_data)} forms for {tenant['name']}")
     
@@ -824,7 +844,9 @@ async def seed_claude_platform():
                 "created_at": created_date,
                 "updated_at": created_date
             }
-            await db.leads.insert_one(lead)
+            lead_obj = Lead(**lead)
+            session.add(lead_obj)
+            await session.commit()
         
         print(f"✅ Created {leads_count} sample leads for {tenant['name']}")
     
@@ -839,12 +861,19 @@ async def seed_claude_platform():
         print(f"   Login: admin user credentials above")
         print(f"   Features: {', '.join([k for k, v in tenant['feature_toggles'].items() if v])}")
     
-    print(f"\n📊 PLATFORM STATISTICS:")
-    print(f"   • {len(created_tenants)} tenants across {len(set(t['industry_module'] for t in created_tenants))} industries")
-    print(f"   • {await db.users.count_documents({})} total users")
-    print(f"   • {await db.pages.count_documents({})} website pages")
-    print(f"   • {await db.forms.count_documents({})} lead capture forms")
-    print(f"   • {await db.leads.count_documents({})} leads generated")
+        print(f"\n📊 PLATFORM STATISTICS:")
+        print(f"   • {len(created_tenants)} tenants across {len(set(t['industry_module'] for t in created_tenants))} industries")
+        
+        from sqlalchemy import func
+        user_count = await session.execute(select(func.count(User.id)))
+        page_count = await session.execute(select(func.count(Page.id)))
+        form_count = await session.execute(select(func.count(Form.id)))
+        lead_count = await session.execute(select(func.count(Lead.id)))
+        
+        print(f"   • {user_count.scalar()} total users")
+        print(f"   • {page_count.scalar()} website pages")
+        print(f"   • {form_count.scalar()} lead capture forms")
+        print(f"   • {lead_count.scalar()} leads generated")
     print(f"   • {len(templates)} industry-specific templates")
     
     print(f"\n🔑 LOGIN CREDENTIALS:")
@@ -855,7 +884,6 @@ async def seed_claude_platform():
 
 async def main():
     await seed_claude_platform()
-    client.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

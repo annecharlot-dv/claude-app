@@ -169,53 +169,83 @@ def get_tenant_id_from_request(request: Request) -> str:
 
 
 class TenantAwareRepository:
-    """Base repository class with tenant isolation"""
+    """Base repository class with tenant isolation using PostgreSQL"""
     
-    def __init__(self, db, collection_name: str):
-        self.db = db
-        self.collection = db[collection_name]
+    def __init__(self, connection_manager, model_class):
+        self.connection_manager = connection_manager
+        self.model_class = model_class
     
-    async def find_one(self, query: Dict[str, Any], tenant_id: str) -> Optional[Dict[str, Any]]:
+    async def find_one(self, query_conditions: list, tenant_id: str) -> Optional[Any]:
         """Find one document with tenant filtering"""
-        query = TenantFilterMixin.add_tenant_filter(query, tenant_id)
-        return await self.collection.find_one(query)
+        from sqlalchemy import select
+        
+        async with self.connection_manager.get_session() as session:
+            conditions = [self.model_class.tenant_id == tenant_id] + query_conditions
+            result = await session.execute(select(self.model_class).where(*conditions))
+            return result.scalar_one_or_none()
     
     async def find_many(
         self, 
-        query: Dict[str, Any], 
+        query_conditions: list, 
         tenant_id: str,
         limit: int = 100,
         skip: int = 0
     ) -> list:
         """Find multiple documents with tenant filtering"""
-        query = TenantFilterMixin.add_tenant_filter(query, tenant_id)
-        cursor = self.collection.find(query).skip(skip).limit(limit)
-        return await cursor.to_list(length=limit)
+        from sqlalchemy import select
+        
+        async with self.connection_manager.get_session() as session:
+            conditions = [self.model_class.tenant_id == tenant_id] + query_conditions
+            result = await session.execute(
+                select(self.model_class).where(*conditions).offset(skip).limit(limit)
+            )
+            return result.scalars().all()
     
-    async def insert_one(self, document: Dict[str, Any], tenant_id: str) -> Any:
+    async def insert_one(self, document_data: Dict[str, Any], tenant_id: str) -> Any:
         """Insert document with tenant isolation"""
-        document = TenantFilterMixin.ensure_tenant_isolation(document, tenant_id)
-        return await self.collection.insert_one(document)
+        document_data["tenant_id"] = tenant_id
+        
+        async with self.connection_manager.get_session() as session:
+            obj = self.model_class(**document_data)
+            session.add(obj)
+            await session.commit()
+            return obj
     
     async def update_one(
         self, 
-        query: Dict[str, Any], 
-        update: Dict[str, Any], 
+        query_conditions: list, 
+        update_data: Dict[str, Any], 
         tenant_id: str
     ) -> Any:
         """Update document with tenant filtering"""
-        query = TenantFilterMixin.add_tenant_filter(query, tenant_id)
-        return await self.collection.update_one(query, update)
+        from sqlalchemy import update
+        
+        async with self.connection_manager.get_session() as session:
+            conditions = [self.model_class.tenant_id == tenant_id] + query_conditions
+            await session.execute(
+                update(self.model_class).where(*conditions).values(**update_data)
+            )
+            await session.commit()
     
-    async def delete_one(self, query: Dict[str, Any], tenant_id: str) -> Any:
+    async def delete_one(self, query_conditions: list, tenant_id: str) -> Any:
         """Delete document with tenant filtering"""
-        query = TenantFilterMixin.add_tenant_filter(query, tenant_id)
-        return await self.collection.delete_one(query)
+        from sqlalchemy import delete
+        
+        async with self.connection_manager.get_session() as session:
+            conditions = [self.model_class.tenant_id == tenant_id] + query_conditions
+            await session.execute(delete(self.model_class).where(*conditions))
+            await session.commit()
     
-    async def count_documents(self, query: Dict[str, Any], tenant_id: str) -> int:
+    async def count_documents(self, query_conditions: list, tenant_id: str) -> int:
         """Count documents with tenant filtering"""
-        query = TenantFilterMixin.add_tenant_filter(query, tenant_id)
-        return await self.collection.count_documents(query)
+        from sqlalchemy import select, func
+        
+        async with self.connection_manager.get_session() as session:
+            conditions = [self.model_class.tenant_id == tenant_id] + query_conditions
+            result = await session.execute(
+                select(func.count(self.model_class.id)).where(*conditions)
+            )
+            return result.scalar()
 
 
 class TenantSecurityValidator:

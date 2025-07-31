@@ -154,12 +154,12 @@ class FinancialKernel(BaseKernel):
     
     async def get_transactions(self, tenant_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Get transactions for tenant"""
-        query = {"tenant_id": tenant_id}
-        if filters:
-            query.update(filters)
-        
-        transactions = await self.db.transactions.find(query).sort("transaction_date", -1).to_list(1000)
-        return transactions
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Transaction).where(Transaction.tenant_id == tenant_id).order_by(Transaction.transaction_date.desc())
+            )
+            transactions = result.scalars().all()
+            return [transaction.__dict__ for transaction in transactions]
     
     # Subscription Management
     async def create_subscription(self, tenant_id: str, subscription_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -171,17 +171,22 @@ class FinancialKernel(BaseKernel):
             "created_at": datetime.utcnow(),
             "next_billing_date": subscription_data.get("start_date", datetime.utcnow())
         }
-        await self.db.subscriptions.insert_one(subscription_doc)
-        return subscription_doc
+        async with self.connection_manager.get_session() as session:
+            subscription = Subscription(**subscription_doc)
+            session.add(subscription)
+            await session.commit()
+            return subscription_doc
     
     async def get_subscriptions(self, tenant_id: str, customer_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get subscriptions for tenant"""
-        query = {"tenant_id": tenant_id}
-        if customer_id:
-            query["customer_id"] = customer_id
-        
-        subscriptions = await self.db.subscriptions.find(query).to_list(1000)
-        return subscriptions
+        async with self.connection_manager.get_session() as session:
+            query = select(Subscription).where(Subscription.tenant_id == tenant_id)
+            if customer_id:
+                query = query.where(Subscription.customer_id == customer_id)
+            
+            result = await session.execute(query)
+            subscriptions = result.scalars().all()
+            return [subscription.__dict__ for subscription in subscriptions]
     
     # Financial Reports
     async def get_revenue_report(self, tenant_id: str, start_date: datetime, end_date: datetime) -> Dict[str, Any]:

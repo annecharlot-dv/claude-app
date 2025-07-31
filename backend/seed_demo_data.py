@@ -6,7 +6,7 @@ import asyncio
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
+from database.config.connection_pool import PostgreSQLConnectionManager
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import uuid
@@ -16,9 +16,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # Database connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+connection_manager = PostgreSQLConnectionManager()
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -50,7 +48,12 @@ async def seed_demo_data():
         "created_at": datetime.utcnow()
     }
     
-    await db.tenants.insert_one(tenant)
+    from backend.models.postgresql_models import Tenant
+    
+    async with connection_manager.get_session() as session:
+        tenant_obj = Tenant(**tenant)
+        session.add(tenant_obj)
+        await session.commit()
     print(f"✅ Created tenant: {tenant['name']}")
     
     # Create demo users
@@ -113,11 +116,18 @@ async def seed_demo_data():
         password = user.pop("password")
         hashed_password = pwd_context.hash(password)
         
-        await db.users.insert_one(user)
-        await db.user_passwords.insert_one({
-            "user_id": user["id"],
-            "hashed_password": hashed_password
-        })
+        from backend.models.postgresql_models import User, UserPassword
+        
+        async with connection_manager.get_session() as session:
+            user_obj = User(**user)
+            session.add(user_obj)
+            
+            user_password = UserPassword(
+                user_id=user["id"],
+                hashed_password=hashed_password
+            )
+            session.add(user_password)
+            await session.commit()
         
         print(f"✅ Created user: {user['email']} (role: {user['role']})")
     
@@ -216,9 +226,14 @@ async def seed_demo_data():
         }
     ]
     
-    for resource in resources:
-        await db.resources.insert_one(resource)
-        print(f"✅ Created resource: {resource['name']} ({resource['type']})")
+    from backend.models.postgresql_models import Resource
+    
+    async with connection_manager.get_session() as session:
+        for resource in resources:
+            resource_obj = Resource(**resource)
+            session.add(resource_obj)
+            await session.commit()
+            print(f"✅ Created resource: {resource['name']} ({resource['type']})")
     
     # Create some demo bookings
     now = datetime.utcnow()
@@ -264,9 +279,14 @@ async def seed_demo_data():
         }
     ]
     
-    for booking in bookings:
-        await db.bookings.insert_one(booking)
-        print(f"✅ Created booking: {booking['notes']}")
+    from backend.models.postgresql_models import Booking
+    
+    async with connection_manager.get_session() as session:
+        for booking in bookings:
+            booking_obj = Booking(**booking)
+            session.add(booking_obj)
+            await session.commit()
+            print(f"✅ Created booking: {booking['notes']}")
     
     print("\n🎉 Demo data seeded successfully!")
     print("\nDemo Login Credentials:")
@@ -278,7 +298,6 @@ async def seed_demo_data():
 
 async def main():
     await seed_demo_data()
-    client.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

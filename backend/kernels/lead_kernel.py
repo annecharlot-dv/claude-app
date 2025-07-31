@@ -472,43 +472,56 @@ class LeadKernel(BaseKernel):
         notes: Optional[str] = None
     ) -> bool:
         """Schedule a tour for a lead"""
-        # Check if slot is available
-        slot = await self.tour_slots_collection.find_one({
-            "tenant_id": tenant_id,
-            "id": tour_slot_id,
-            "is_available": True,
-            "$expr": {"$lt": ["$current_bookings", "$max_bookings"]}
-        })
+        from backend.models.postgresql_models import TourSlot, Lead
+        from sqlalchemy import select, update
         
-        if not slot:
-            return False
-        
-        # Update lead with tour information
-        tour_updates = {
-            "status": LeadStatus.TOUR_SCHEDULED,
-            "tour_scheduled_at": slot["date"],
-            "tour_notes": notes,
-            "updated_at": datetime.utcnow()
-        }
-        
-        lead_result = await self.leads_collection.update_one(
-            {"tenant_id": tenant_id, "id": lead_id},
-            {"$set": tour_updates}
-        )
-        
-        if lead_result.modified_count == 0:
-            return False
-        
-        # Update slot booking count
-        await self.tour_slots_collection.update_one(
-            {"tenant_id": tenant_id, "id": tour_slot_id},
-            {"$inc": {"current_bookings": 1}}
-        )
+        async with self.connection_manager.get_session() as session:
+            # Check if slot is available
+            result = await session.execute(
+                select(TourSlot).where(
+                    TourSlot.tenant_id == tenant_id,
+                    TourSlot.id == tour_slot_id,
+                    TourSlot.is_available == True,
+                    TourSlot.current_bookings < TourSlot.max_bookings
+                )
+            )
+            slot = result.scalar_one_or_none()
+            
+            if not slot:
+                return False
+            
+            # Update lead with tour information
+            tour_updates = {
+                "status": LeadStatus.TOUR_SCHEDULED,
+                "tour_scheduled_at": slot.date,
+                "tour_notes": notes,
+                "updated_at": datetime.utcnow()
+            }
+            
+            lead_result = await session.execute(
+                update(Lead).where(
+                    Lead.tenant_id == tenant_id,
+                    Lead.id == lead_id
+                ).values(**tour_updates)
+            )
+            
+            if lead_result.rowcount == 0:
+                return False
+            
+            # Update slot booking count
+            await session.execute(
+                update(TourSlot).where(
+                    TourSlot.tenant_id == tenant_id,
+                    TourSlot.id == tour_slot_id
+                ).values(current_bookings=TourSlot.current_bookings + 1)
+            )
+            
+            await session.commit()
         
         # Log activity
         await self._log_lead_activity(
             tenant_id, lead_id, "tour_scheduled",
-            {"tour_slot_id": tour_slot_id, "scheduled_at": slot["date"]}
+            {"tour_slot_id": tour_slot_id, "scheduled_at": slot.date}
         )
         
         return True

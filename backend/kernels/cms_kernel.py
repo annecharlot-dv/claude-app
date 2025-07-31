@@ -130,46 +130,65 @@ class CMSKernel(BaseKernel):
     # Template Management
     async def get_templates(self, industry_module: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get templates, optionally filtered by industry"""
-        query = {"is_active": True}
-        if industry_module:
-            query["$or"] = [
-                {"industry_module": industry_module},
-                {"industry_module": None}  # Universal templates
-            ]
-        
-        templates = await self.db.templates.find(query).to_list(1000)
-        return templates
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [Template.is_active == True]
+            
+            if industry_module:
+                from sqlalchemy import or_
+                query_conditions.append(
+                    or_(
+                        Template.industry_module == industry_module,
+                        Template.industry_module.is_(None)
+                    )
+                )
+            
+            result = await session.execute(
+                select(Template).where(*query_conditions).limit(1000)
+            )
+            templates = result.scalars().all()
+            return [template.__dict__ for template in templates]
     
     async def create_template(self, template_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new template"""
-        template_doc = {
-            **template_data,
-            "is_active": True,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.templates.insert_one(template_doc)
-        return template_doc
+        async with self.connection_manager.get_session() as session:
+            template_data.update({
+                "is_active": True,
+                "created_at": datetime.utcnow()
+            })
+            
+            template_obj = Template(**template_data)
+            session.add(template_obj)
+            await session.commit()
+            return template_data
     
     # Widget Management
     async def create_widget(self, tenant_id: str, widget_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new widget"""
-        widget_doc = {
-            **widget_data,
-            "tenant_id": tenant_id,
-            "is_active": True,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.widgets.insert_one(widget_doc)
-        return widget_doc
+        async with self.connection_manager.get_session() as session:
+            widget_data.update({
+                "tenant_id": tenant_id,
+                "is_active": True,
+                "created_at": datetime.utcnow()
+            })
+            
+            widget_obj = Widget(**widget_data)
+            session.add(widget_obj)
+            await session.commit()
+            return widget_data
     
     async def get_widgets(self, tenant_id: str, widget_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get widgets for tenant"""
-        query = {"tenant_id": tenant_id, "is_active": True}
-        if widget_type:
-            query["type"] = widget_type
-        
-        widgets = await self.db.widgets.find(query).to_list(1000)
-        return widgets
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [Widget.tenant_id == tenant_id, Widget.is_active == True]
+            
+            if widget_type:
+                query_conditions.append(Widget.type == widget_type)
+            
+            result = await session.execute(
+                select(Widget).where(*query_conditions).limit(1000)
+            )
+            widgets = result.scalars().all()
+            return [widget.__dict__ for widget in widgets]
     
     # Media Library
     async def upload_media(self, tenant_id: str, media_data: Dict[str, Any]) -> Dict[str, Any]:

@@ -52,46 +52,53 @@ class BookingKernel(BaseKernel):
     
     async def set_resource_availability(self, resource_id: str, availability_schedule: List[Dict[str, Any]]):
         """Set availability schedule for a resource"""
-        # Clear existing schedule
-        await self.db.availability_schedules.delete_many({"resource_id": resource_id})
-        
-        # Insert new schedule
-        for schedule in availability_schedule:
-            schedule_doc = {
-                **schedule,
-                "resource_id": resource_id,
-                "created_at": datetime.utcnow()
-            }
-            await self.db.availability_schedules.insert_one(schedule_doc)
+        async with self.connection_manager.get_session() as session:
+            # Clear existing schedule
+            await session.execute(delete(AvailabilitySchedule).where(AvailabilitySchedule.resource_id == resource_id))
+            
+            # Insert new schedule
+            for schedule in availability_schedule:
+                schedule_data = {
+                    **schedule,
+                    "resource_id": resource_id,
+                    "created_at": datetime.utcnow()
+                }
+                schedule_obj = AvailabilitySchedule(**schedule_data)
+                session.add(schedule_obj)
+            
+            await session.commit()
     
     # Booking Engine
     async def check_availability(self, resource_id: str, start_time: datetime, end_time: datetime) -> bool:
         """Check if resource is available for the given time slot"""
-        # Check for existing bookings
-        existing_booking = await self.db.bookings.find_one({
-            "resource_id": resource_id,
-            "status": {"$in": ["confirmed", "pending"]},
-            "$or": [
-                {
-                    "start_time": {"$lt": end_time},
-                    "end_time": {"$gt": start_time}
-                }
-            ]
-        })
-        
-        if existing_booking:
-            return False
-        
-        # Check availability schedule
-        day_of_week = start_time.weekday()  # 0=Monday, 6=Sunday
-        availability = await self.db.availability_schedules.find_one({
-            "resource_id": resource_id,
-            "day_of_week": day_of_week,
-            "start_time": {"$lte": start_time.time()},
-            "end_time": {"$gte": end_time.time()}
-        })
-        
-        return availability is not None
+        async with self.connection_manager.get_session() as session:
+            # Check for existing bookings
+            result = await session.execute(
+                select(Booking).where(
+                    Booking.resource_id == resource_id,
+                    Booking.status.in_(["confirmed", "pending"]),
+                    Booking.start_time < end_time,
+                    Booking.end_time > start_time
+                )
+            )
+            existing_booking = result.scalar_one_or_none()
+            
+            if existing_booking:
+                return False
+            
+            # Check availability schedule
+            day_of_week = start_time.weekday()  # 0=Monday, 6=Sunday
+            result = await session.execute(
+                select(AvailabilitySchedule).where(
+                    AvailabilitySchedule.resource_id == resource_id,
+                    AvailabilitySchedule.day_of_week == day_of_week,
+                    AvailabilitySchedule.start_time <= start_time.time(),
+                    AvailabilitySchedule.end_time >= end_time.time()
+                )
+            )
+            availability = result.scalar_one_or_none()
+            
+            return availability is not None
     
     async def create_booking(self, tenant_id: str, booking_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new booking"""

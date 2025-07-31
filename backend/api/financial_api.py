@@ -200,9 +200,7 @@ async def create_invoice(
         )
         
         # Get line items for response
-        line_items_docs = await financial_kernel.db.line_items.find({
-            "invoice_id": invoice["id"]
-        }).to_list(None)
+        line_items_docs = await financial_kernel.get_line_items(invoice["id"])
         
         return InvoiceResponse(
             id=invoice["id"],

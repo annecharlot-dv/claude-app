@@ -72,22 +72,28 @@ class PostgreSQLAdapter:
     async def get_user_by_email(self, email: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get user by email with tenant filtering"""
         
-        result = await self.query_builder.find_one(
-            'users', 
-            {'email': email}, 
-            tenant_id
-        )
-        return dict(result) if result else None
+        from backend.models.postgresql_models import User
+        from sqlalchemy import select
+        
+        async with self.conn_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(User.email == email, User.tenant_id == tenant_id)
+            )
+            user = result.scalar_one_or_none()
+        return user
     
     async def get_user_by_id(self, user_id: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get user by ID with tenant filtering"""
         
-        result = await self.query_builder.find_one(
-            'users', 
-            {'id': user_id}, 
-            tenant_id
-        )
-        return dict(result) if result else None
+        from backend.models.postgresql_models import User
+        from sqlalchemy import select
+        
+        async with self.conn_manager.get_session() as session:
+            result = await session.execute(
+                select(User).where(User.id == user_id, User.tenant_id == tenant_id)
+            )
+            user = result.scalar_one_or_none()
+            return user
     
     async def update_user(self, user_id: str, update_data: Dict[str, Any], tenant_id: str) -> Optional[Dict[str, Any]]:
         """Update user with tenant filtering"""
@@ -132,12 +138,15 @@ class PostgreSQLAdapter:
     async def get_page_by_slug(self, slug: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get page by slug with tenant filtering"""
         
-        result = await self.query_builder.find_one(
-            'pages', 
-            {'slug': slug}, 
-            tenant_id
-        )
-        return dict(result) if result else None
+        from backend.models.postgresql_models import Page
+        from sqlalchemy import select
+        
+        async with self.conn_manager.get_session() as session:
+            result = await session.execute(
+                select(Page).where(Page.slug == slug, Page.tenant_id == tenant_id)
+            )
+            page = result.scalar_one_or_none()
+            return page
     
     async def get_pages(self, tenant_id: str, filters: Dict = None, limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:
         """Get pages with tenant filtering and pagination"""
@@ -200,12 +209,15 @@ class PostgreSQLAdapter:
     async def get_lead_by_email(self, email: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get lead by email with tenant filtering"""
         
-        result = await self.query_builder.find_one(
-            'leads', 
-            {'email': email}, 
-            tenant_id
-        )
-        return dict(result) if result else None
+        from backend.models.postgresql_models import Lead
+        from sqlalchemy import select
+        
+        async with self.conn_manager.get_session() as session:
+            result = await session.execute(
+                select(Lead).where(Lead.email == email, Lead.tenant_id == tenant_id)
+            )
+            lead = result.scalar_one_or_none()
+            return lead
     
     async def get_leads(self, tenant_id: str, filters: Dict = None, limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:
         """Get leads with tenant filtering and pagination"""

@@ -202,18 +202,58 @@ class IdentityKernel(BaseKernel):
     # Tenant Management
     async def create_tenant(self, tenant_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new tenant"""
-        tenant_doc = {
-            **tenant_data,
-            "is_active": True,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.tenants.insert_one(tenant_doc)
-        return tenant_doc
+        async with self.connection_manager.get_session() as session:
+            tenant_obj = Tenant(
+                **tenant_data,
+                is_active=True,
+                created_at=datetime.utcnow()
+            )
+            session.add(tenant_obj)
+            await session.commit()
+            
+            return {
+                "id": tenant_obj.id,
+                "name": tenant_obj.name,
+                "subdomain": tenant_obj.subdomain,
+                "industry_module": tenant_obj.industry_module,
+                "is_active": tenant_obj.is_active,
+                "created_at": tenant_obj.created_at
+            }
     
     async def get_tenant_by_subdomain(self, subdomain: str) -> Optional[Dict[str, Any]]:
         """Get tenant by subdomain"""
-        return await self.db.tenants.find_one({"subdomain": subdomain, "is_active": True})
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Tenant).where(Tenant.subdomain == subdomain, Tenant.is_active == True)
+            )
+            tenant = result.scalar_one_or_none()
+            if not tenant:
+                return None
+            
+            return {
+                "id": tenant.id,
+                "name": tenant.name,
+                "subdomain": tenant.subdomain,
+                "industry_module": tenant.industry_module,
+                "is_active": tenant.is_active,
+                "created_at": tenant.created_at
+            }
     
     async def get_tenant_by_id(self, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get tenant by ID"""
-        return await self.db.tenants.find_one({"id": tenant_id, "is_active": True})
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Tenant).where(Tenant.id == tenant_id, Tenant.is_active == True)
+            )
+            tenant = result.scalar_one_or_none()
+            if not tenant:
+                return None
+            
+            return {
+                "id": tenant.id,
+                "name": tenant.name,
+                "subdomain": tenant.subdomain,
+                "industry_module": tenant.industry_module,
+                "is_active": tenant.is_active,
+                "created_at": tenant.created_at
+            }

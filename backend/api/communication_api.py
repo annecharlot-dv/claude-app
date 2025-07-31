@@ -170,10 +170,17 @@ async def get_template(
 ):
     """Get template by ID"""
     try:
-        template = await comm_kernel.db.message_templates.find_one({
-            "id": template_id,
-            "tenant_id": tenant_id
-        })
+        from backend.models.postgresql_models import MessageTemplate
+        from sqlalchemy import select
+        
+        async with comm_kernel.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(MessageTemplate).where(
+                    MessageTemplate.id == template_id,
+                    MessageTemplate.tenant_id == tenant_id
+                )
+            )
+            template = result.scalar_one_or_none()
         
         if not template:
             raise HTTPException(
@@ -347,7 +354,20 @@ async def list_messages(
         if status_filter:
             query["status"] = status_filter
         
-        messages = await comm_kernel.db.message_queue.find(query).sort("created_at", -1).limit(limit).to_list(limit)
+        from backend.models.postgresql_models import MessageQueue
+        from sqlalchemy import select
+        
+        async with comm_kernel.connection_manager.get_session() as session:
+            query_conditions = [MessageQueue.tenant_id == tenant_id]
+            if status_filter:
+                query_conditions.append(MessageQueue.status == status_filter)
+            
+            result = await session.execute(
+                select(MessageQueue).where(*query_conditions)
+                .order_by(MessageQueue.created_at.desc())
+                .limit(limit)
+            )
+            messages = result.scalars().all()
         
         return [
             MessageResponse(
@@ -495,20 +515,33 @@ async def get_queue_status(
 ):
     """Get message queue status"""
     try:
-        queued_count = await comm_kernel.db.message_queue.count_documents({
-            "tenant_id": tenant_id,
-            "status": "queued"
-        })
+        from backend.models.postgresql_models import MessageQueue
+        from sqlalchemy import select, func
         
-        processing_count = await comm_kernel.db.message_queue.count_documents({
-            "tenant_id": tenant_id,
-            "status": "processing"
-        })
-        
-        failed_count = await comm_kernel.db.message_queue.count_documents({
-            "tenant_id": tenant_id,
-            "status": "failed"
-        })
+        async with comm_kernel.connection_manager.get_session() as session:
+            queued_result = await session.execute(
+                select(func.count(MessageQueue.id)).where(
+                    MessageQueue.tenant_id == tenant_id,
+                    MessageQueue.status == "queued"
+                )
+            )
+            queued_count = queued_result.scalar()
+            
+            processing_result = await session.execute(
+                select(func.count(MessageQueue.id)).where(
+                    MessageQueue.tenant_id == tenant_id,
+                    MessageQueue.status == "processing"
+                )
+            )
+            processing_count = processing_result.scalar()
+            
+            failed_result = await session.execute(
+                select(func.count(MessageQueue.id)).where(
+                    MessageQueue.tenant_id == tenant_id,
+                    MessageQueue.status == "failed"
+                )
+            )
+            failed_count = failed_result.scalar()
         
         return {
             "queued": queued_count,

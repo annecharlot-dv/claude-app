@@ -42,9 +42,16 @@ async def detailed_health_check(request: Request):
         
         # Check database connectivity
         try:
-            await platform_core.db.command("ping")
-            db_status = "healthy"
-            db_error = None
+            from database.config.connection_pool import PostgreSQLConnectionManager
+            connection_manager = PostgreSQLConnectionManager()
+            health_result = await connection_manager.health_check()
+            
+            if health_result["status"] == "healthy":
+                db_status = "healthy"
+                db_error = None
+            else:
+                db_status = "unhealthy"
+                db_error = health_result.get("error", "Unknown error")
         except Exception as e:
             db_status = "unhealthy"
             db_error = str(e)
@@ -186,42 +193,42 @@ async def database_health_check(request: Request):
         db = platform_core.db
         
         # Test basic connectivity
+        from database.config.connection_pool import PostgreSQLConnectionManager
+        connection_manager = PostgreSQLConnectionManager()
+        
         start_time = datetime.utcnow()
-        await db.command("ping")
+        health_result = await connection_manager.health_check()
         ping_time = (datetime.utcnow() - start_time).total_seconds() * 1000
         
-        # Get database stats
-        stats = await db.command("dbStats")
+        tables_status = {}
+        test_tables = ["tenants", "users", "leads", "forms", "pages"]
         
-        # Test collection access
-        collections_status = {}
-        test_collections = ["tenants", "users", "bookings", "leads", "invoices"]
-        
-        for collection_name in test_collections:
-            try:
-                collection = db[collection_name]
-                count = await collection.count_documents({})
-                collections_status[collection_name] = {
-                    "status": "healthy",
-                    "document_count": count
-                }
-            except Exception as e:
-                collections_status[collection_name] = {
-                    "status": "unhealthy",
-                    "error": str(e)
-                }
+        async with connection_manager.get_session() as session:
+            from sqlalchemy import text
+            for table_name in test_tables:
+                try:
+                    result = await session.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
+                    count = result.scalar()
+                    tables_status[table_name] = {
+                        "status": "healthy",
+                        "record_count": count
+                    }
+                except Exception as e:
+                    tables_status[table_name] = {
+                        "status": "unhealthy",
+                        "error": str(e)
+                    }
         
         return {
-            "status": "healthy",
+            "status": "healthy" if health_result["status"] == "healthy" else "unhealthy",
             "timestamp": datetime.utcnow().isoformat(),
             "ping_time_ms": round(ping_time, 2),
             "database_stats": {
-                "collections": stats.get("collections", 0),
-                "data_size": stats.get("dataSize", 0),
-                "storage_size": stats.get("storageSize", 0),
-                "indexes": stats.get("indexes", 0)
+                "connection_pools": health_result.get("pools", {}),
+                "active_connections": health_result.get("active_connections", 0),
+                "pool_status": health_result.get("pool_status", "unknown")
             },
-            "collections": collections_status
+            "tables": tables_status
         }
         
     except Exception as e:

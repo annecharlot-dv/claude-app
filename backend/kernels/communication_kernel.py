@@ -131,44 +131,48 @@ class CommunicationKernel(BaseKernel):
     async def queue_message(self, tenant_id: str, message_data: Dict[str, Any], 
                           scheduled_for: Optional[datetime] = None) -> Dict[str, Any]:
         """Queue a message for delivery"""
-        message_doc = {
-            **message_data,
-            "tenant_id": tenant_id,
-            "status": "queued",
-            "scheduled_for": scheduled_for or datetime.utcnow(),
-            "attempts": 0,
-            "max_attempts": 3,
-            "created_at": datetime.utcnow()
-        }
-        await self.db.message_queue.insert_one(message_doc)
-        return message_doc
+        async with self.connection_manager.get_session() as session:
+            message_obj = MessageQueue(
+                tenant_id=tenant_id,
+                status="queued",
+                scheduled_for=scheduled_for or datetime.utcnow(),
+                attempts=0,
+                max_attempts=3,
+                created_at=datetime.utcnow(),
+                **message_data
+            )
+            session.add(message_obj)
+            await session.commit()
+            return message_obj.__dict__
     
     async def get_queued_messages(self, tenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get messages ready for delivery"""
-        query = {
-            "status": "queued",
-            "scheduled_for": {"$lte": datetime.utcnow()}
-        }
-        if tenant_id:
-            query["tenant_id"] = tenant_id
-        
-        messages = await self.db.message_queue.find(query).limit(100).to_list(100)
-        return messages
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [
+                MessageQueue.status == "queued",
+                MessageQueue.scheduled_for <= datetime.utcnow()
+            ]
+            if tenant_id:
+                query_conditions.append(MessageQueue.tenant_id == tenant_id)
+            
+            result = await session.execute(
+                select(MessageQueue).where(*query_conditions).limit(100)
+            )
+            messages = result.scalars().all()
+            return [message.__dict__ for message in messages]
     
     async def update_message_status(self, message_id: str, status: str, error: Optional[str] = None):
         """Update message delivery status"""
-        update_data = {
-            "status": status,
-            "updated_at": datetime.utcnow(),
-            "$inc": {"attempts": 1}
-        }
-        if error:
-            update_data["last_error"] = error
-        
-        await self.db.message_queue.update_one(
-            {"id": message_id},
-            {"$set": update_data}
-        )
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(select(MessageQueue).where(MessageQueue.id == message_id))
+            message = result.scalar_one_or_none()
+            if message:
+                message.status = status
+                message.updated_at = datetime.utcnow()
+                message.attempts = (message.attempts or 0) + 1
+                if error:
+                    message.last_error = error
+                await session.commit()
     
     # Event Triggers
     async def trigger_event(self, tenant_id: str, event: TriggerEvent, context: Dict[str, Any]):
