@@ -16,7 +16,7 @@ async def debug_permissions():
         identity_kernel = core.get_kernel('identity')
         
         # Find a test user (account owner from downtown-hub)
-        from backend.models.postgresql_models import User
+        from models.postgresql_models import User
         from sqlalchemy import select
         result = await session.execute(
             select(User).where(

@@ -80,7 +80,7 @@ class AuditLogger:
         
         try:
             # Insert audit record using PostgreSQL
-            from backend.models.postgresql_models import AuditLog
+            from models.postgresql_models import AuditLog
             audit_log = AuditLog(**audit_record)
             self.session.add(audit_log)
             await self.session.commit()
@@ -163,7 +163,7 @@ class AuditLogger:
     async def verify_integrity(self, audit_id: str) -> bool:
         """Verify the integrity of an audit record"""
         try:
-            from backend.models.postgresql_models import AuditLog
+            from models.postgresql_models import AuditLog
             result = await self.session.execute(select(AuditLog).where(AuditLog.id == audit_id))
             record = result.scalar_one_or_none()
             if not record:
@@ -226,7 +226,7 @@ class AuditLogger:
             query["user_id"] = user_id
         
         try:
-            from backend.models.postgresql_models import AuditLog
+            from models.postgresql_models import AuditLog
             
             query_conditions = [AuditLog.tenant_id == tenant_id]
             
@@ -296,7 +296,7 @@ class AuditLogger:
         
         try:
             # Get all relevant audit records using PostgreSQL
-            from backend.models.postgresql_models import AuditLog
+            from models.postgresql_models import AuditLog
             
             query_conditions = [
                 AuditLog.tenant_id == tenant_id,

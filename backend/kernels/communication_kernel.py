@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from kernels.base_kernel import BaseKernel
 from sqlalchemy import select, update, func, delete
-from backend.models.postgresql_models import MessageTemplate, Workflow, MessageQueue, AutomationLog, NotificationPreference
+from models.postgresql_models import MessageTemplate, Workflow, MessageQueue, AutomationLog, NotificationPreference
 
 
 class TriggerEvent(str, Enum):
@@ -46,7 +46,7 @@ class CommunicationKernel(BaseKernel):
     
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        from backend.models.postgresql_models import User
+        from models.postgresql_models import User
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
                 select(User).where(User.id == user_id, User.tenant_id == tenant_id)

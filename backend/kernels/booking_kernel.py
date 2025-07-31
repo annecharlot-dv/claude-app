@@ -5,7 +5,7 @@ Universal scheduling engine for any type of resource
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from kernels.base_kernel import BaseKernel
-from backend.models.postgresql_models import User, Booking, Resource, AvailabilitySchedule
+from models.postgresql_models import User, Booking, Resource, AvailabilitySchedule
 from sqlalchemy import select, update, delete, func
 
 

@@ -299,7 +299,7 @@ class DatabasePerformanceTests:
     
     async def _test_user_query(self):
         """Test user query performance"""
-        from backend.models.postgresql_models import User
+        from models.postgresql_models import User
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:
@@ -313,7 +313,7 @@ class DatabasePerformanceTests:
     
     async def _test_page_query(self):
         """Test page query performance"""
-        from backend.models.postgresql_models import Page
+        from models.postgresql_models import Page
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:
@@ -327,7 +327,7 @@ class DatabasePerformanceTests:
     
     async def _test_lead_query(self):
         """Test lead query performance"""
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:

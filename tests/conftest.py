@@ -6,7 +6,7 @@ import asyncio
 import os
 from typing import AsyncGenerator, Dict, Any
 from database.config.connection_pool import PostgreSQLConnectionManager
-from backend.models.postgresql_models import Base, Tenant, User, Page, Lead, Form, Tour, TourSlot
+from models.postgresql_models import Base, Tenant, User, Page, Lead, Form, Tour, TourSlot
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock
 import jwt

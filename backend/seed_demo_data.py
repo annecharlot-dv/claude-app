@@ -48,7 +48,7 @@ async def seed_demo_data():
         "created_at": datetime.utcnow()
     }
     
-    from backend.models.postgresql_models import Tenant
+    from models.postgresql_models import Tenant
     
     async with connection_manager.get_session() as session:
         tenant_obj = Tenant(**tenant)
@@ -116,7 +116,7 @@ async def seed_demo_data():
         password = user.pop("password")
         hashed_password = pwd_context.hash(password)
         
-        from backend.models.postgresql_models import User, UserPassword
+        from models.postgresql_models import User, UserPassword
         
         async with connection_manager.get_session() as session:
             user_obj = User(**user)
@@ -226,7 +226,7 @@ async def seed_demo_data():
         }
     ]
     
-    from backend.models.postgresql_models import Resource
+    from models.postgresql_models import Resource
     
     async with connection_manager.get_session() as session:
         for resource in resources:
@@ -279,7 +279,7 @@ async def seed_demo_data():
         }
     ]
     
-    from backend.models.postgresql_models import Booking
+    from models.postgresql_models import Booking
     
     async with connection_manager.get_session() as session:
         for booking in bookings:

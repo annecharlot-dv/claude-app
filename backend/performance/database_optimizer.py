@@ -122,7 +122,7 @@ class DatabaseOptimizer:
         try:
             async with self.connection_manager.get_session() as session:
                 if table_name == "pages":
-                    from backend.models.postgresql_models import Page
+                    from models.postgresql_models import Page
                     from sqlalchemy import select
                     
                     query = select(Page)
@@ -141,7 +141,7 @@ class DatabaseOptimizer:
                     data = result.scalars().all()
                     
                 elif table_name == "leads":
-                    from backend.models.postgresql_models import Lead
+                    from models.postgresql_models import Lead
                     from sqlalchemy import select
                     
                     query = select(Lead)

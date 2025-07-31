@@ -501,7 +501,7 @@ async def login_user(user_data: UserLogin, tenant_subdomain: str):
 @api_router.post("/tenants", response_model=Tenant)
 async def create_tenant(tenant_data: TenantCreate):
     # Check if subdomain is available
-    from backend.models.postgresql_models import Tenant
+    from models.postgresql_models import Tenant
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -534,7 +534,7 @@ async def create_tenant(tenant_data: TenantCreate):
     )
     
     async with connection_manager.get_session() as session:
-        from backend.models.postgresql_models import User, UserPassword
+        from models.postgresql_models import User, UserPassword
         
         admin_user_obj = User(**admin_user.dict())
         session.add(admin_user_obj)
@@ -581,7 +581,7 @@ def get_default_feature_toggles(industry_module: IndustryModule) -> Dict[str, bo
 async def create_default_homepage(tenant_id: str, industry_module: IndustryModule):
     """Create a default homepage based on industry module"""
     # Get default template for industry
-    from backend.models.postgresql_models import Template
+    from models.postgresql_models import Template
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -603,7 +603,7 @@ async def create_default_homepage(tenant_id: str, industry_module: IndustryModul
     )
     
     async with connection_manager.get_session() as session:
-        from backend.models.postgresql_models import Page
+        from models.postgresql_models import Page
         
         homepage_obj = Page(**homepage.dict())
         session.add(homepage_obj)
@@ -678,7 +678,7 @@ async def get_pages(
     skip: int = 0,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -703,7 +703,7 @@ async def create_page(
     page_data: PageCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select, update
     
     async with connection_manager.get_session() as session:
@@ -735,7 +735,7 @@ async def get_page(
     page_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -756,7 +756,7 @@ async def update_page(
     page_data: PageUpdate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select, update
     from datetime import datetime
     
@@ -788,7 +788,7 @@ async def delete_page(
     page_id: str,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select, delete
     
     async with connection_manager.get_session() as session:
@@ -813,7 +813,7 @@ async def delete_page(
 async def get_templates(
     current_user: User = Depends(get_current_user)
 ):
-    from backend.models.postgresql_models import Template, Tenant
+    from models.postgresql_models import Template, Tenant
     from sqlalchemy import select, or_
     
     async with connection_manager.get_session() as session:
@@ -836,7 +836,7 @@ async def get_templates(
 async def get_forms(
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    from backend.models.postgresql_models import Form
+    from models.postgresql_models import Form
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -849,7 +849,7 @@ async def create_form(
     form_data: FormCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    from backend.models.postgresql_models import Form
+    from models.postgresql_models import Form
     
     async with connection_manager.get_session() as session:
         form = Form(**form_data.dict(), tenant_id=current_user.tenant_id)
@@ -864,7 +864,7 @@ async def submit_form(
     request: Request
 ):
     # Get form by ID
-    from backend.models.postgresql_models import Form
+    from models.postgresql_models import Form
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -894,7 +894,7 @@ async def submit_form(
     }
     
     # Check if lead already exists
-    from backend.models.postgresql_models import Lead
+    from models.postgresql_models import Lead
     
     existing_lead_result = await session.execute(
         select(Lead).where(
@@ -921,7 +921,7 @@ async def submit_form(
         lead_id = lead_obj.id
     
     # Store form submission
-    from backend.models.postgresql_models import FormSubmission
+    from models.postgresql_models import FormSubmission
     submission_obj = FormSubmission(
         id=str(uuid.uuid4()),
         form_id=form_id,
@@ -950,7 +950,7 @@ async def get_leads(
     skip: int = 0,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -974,7 +974,7 @@ async def create_lead(
     lead_data: LeadCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    from backend.models.postgresql_models import Lead
+    from models.postgresql_models import Lead
     
     async with connection_manager.get_session() as session:
         lead = Lead(**lead_data.dict(), tenant_id=current_user.tenant_id)
@@ -987,7 +987,7 @@ async def get_lead(
     lead_id: str,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    from backend.models.postgresql_models import Lead
+    from models.postgresql_models import Lead
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1008,7 +1008,7 @@ async def update_lead(
     lead_data: LeadUpdate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    from backend.models.postgresql_models import Lead
+    from models.postgresql_models import Lead
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1060,7 +1060,7 @@ async def get_tour_slots(
         else:
             query["date"] = {"$lte": datetime.fromisoformat(date_to)}
     
-    from backend.models.postgresql_models import TourSlot
+    from models.postgresql_models import TourSlot
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1081,7 +1081,7 @@ async def create_tour_slot(
     slot_data: TourSlotCreate,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    from backend.models.postgresql_models import TourSlot
+    from models.postgresql_models import TourSlot
     
     async with connection_manager.get_session() as session:
         slot = TourSlot(**slot_data.dict(), tenant_id=current_user.tenant_id)
@@ -1091,7 +1091,7 @@ async def create_tour_slot(
 
 @api_router.post("/tours/book")
 async def book_tour(tour_data: TourBooking):
-    from backend.models.postgresql_models import TourSlot, Tour, Lead
+    from models.postgresql_models import TourSlot, Tour, Lead
     from sqlalchemy import select, update
     import uuid
     from datetime import datetime
@@ -1166,7 +1166,7 @@ async def book_tour(tour_data: TourBooking):
 async def get_tours(
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
-    from backend.models.postgresql_models import Tour
+    from models.postgresql_models import Tour
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1184,7 +1184,7 @@ async def get_dashboard_stats(
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     this_month = today.replace(day=1)
     
-    from backend.models.postgresql_models import Lead, Page, Form, Tour
+    from models.postgresql_models import Lead, Page, Form, Tour
     from sqlalchemy import select, func
     
     async with connection_manager.get_session() as session:
@@ -1268,7 +1268,7 @@ async def get_dashboard_stats(
 # Public API routes (no auth required)
 @api_router.get("/public/{tenant_subdomain}/pages/{slug}")
 async def get_public_page(tenant_subdomain: str, slug: str):
-    from backend.models.postgresql_models import Tenant, Page
+    from models.postgresql_models import Tenant, Page
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1302,7 +1302,7 @@ async def get_public_page(tenant_subdomain: str, slug: str):
 
 @api_router.get("/public/{tenant_subdomain}/forms/{form_id}")
 async def get_public_form(tenant_subdomain: str, form_id: str):
-    from backend.models.postgresql_models import Tenant, Form
+    from models.postgresql_models import Tenant, Form
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1396,7 +1396,7 @@ async def save_page_builder_data(
     cms_engine = CoworkingCMSEngine(connection_manager)
     
     # Validate page exists and belongs to tenant
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1430,7 +1430,7 @@ async def get_page_builder_data(
     cms_engine = CoworkingCMSEngine(connection_manager)
     
     # Validate page exists and belongs to tenant
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:
@@ -1469,7 +1469,7 @@ async def render_page_with_blocks(
     cms_engine = CoworkingCMSEngine(connection_manager)
     
     # Validate page exists and belongs to tenant
-    from backend.models.postgresql_models import Page
+    from models.postgresql_models import Page
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:

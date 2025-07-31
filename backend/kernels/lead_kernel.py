@@ -136,7 +136,7 @@ class LeadKernel(BaseKernel):
         lead.score = await self._calculate_lead_score(lead)
         
         # Insert lead using PostgreSQL
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         async with self.connection_manager.get_session() as session:
             lead_obj = Lead(**lead.dict())
             session.add(lead_obj)
@@ -162,7 +162,7 @@ class LeadKernel(BaseKernel):
                     setattr(lead, key, value)
                 updates["score"] = await self._calculate_lead_score(lead)
         
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         from sqlalchemy import update
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -182,7 +182,7 @@ class LeadKernel(BaseKernel):
     
     async def get_lead_by_id(self, tenant_id: str, lead_id: str) -> Optional[LeadModel]:
         """Get lead by ID"""
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         from sqlalchemy import select
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -213,7 +213,7 @@ class LeadKernel(BaseKernel):
         if source:
             query["source"] = source
         
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         from sqlalchemy import select
         async with self.connection_manager.get_session() as session:
             query_conditions = [Lead.tenant_id == tenant_id]
@@ -235,7 +235,7 @@ class LeadKernel(BaseKernel):
     
     async def assign_lead(self, tenant_id: str, lead_id: str, user_id: str) -> bool:
         """Assign lead to a user"""
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         from sqlalchemy import update
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -324,7 +324,7 @@ class LeadKernel(BaseKernel):
     async def create_form(self, tenant_id: str, form_data: Dict[str, Any]) -> FormModel:
         """Create a new lead capture form"""
         form = FormModel(tenant_id=tenant_id, **form_data)
-        from backend.models.postgresql_models import Form
+        from models.postgresql_models import Form
         async with self.connection_manager.get_session() as session:
             form_obj = Form(**form.dict())
             session.add(form_obj)
@@ -333,7 +333,7 @@ class LeadKernel(BaseKernel):
     
     async def get_form_by_id(self, tenant_id: str, form_id: str) -> Optional[FormModel]:
         """Get form by ID"""
-        from backend.models.postgresql_models import Form
+        from models.postgresql_models import Form
         from sqlalchemy import select
         async with self.connection_manager.get_session() as session:
             result = await session.execute(
@@ -351,7 +351,7 @@ class LeadKernel(BaseKernel):
         if active_only:
             query["is_active"] = True
         
-        from backend.models.postgresql_models import Form
+        from models.postgresql_models import Form
         from sqlalchemy import select
         async with self.connection_manager.get_session() as session:
             query_conditions = [Form.tenant_id == tenant_id]
@@ -423,7 +423,7 @@ class LeadKernel(BaseKernel):
                     duration_minutes=duration_minutes
                 )
                 
-                from backend.models.postgresql_models import TourSlot
+                from models.postgresql_models import TourSlot
                 async with self.connection_manager.get_session() as session:
                     slot_obj = TourSlot(**slot.dict())
                     session.add(slot_obj)
@@ -442,7 +442,7 @@ class LeadKernel(BaseKernel):
         staff_user_id: Optional[str] = None
     ) -> List[TourSlotModel]:
         """Get available tour slots"""
-        from backend.models.postgresql_models import TourSlot
+        from models.postgresql_models import TourSlot
         from sqlalchemy import select, and_
         
         async with self.connection_manager.get_session() as session:
@@ -472,7 +472,7 @@ class LeadKernel(BaseKernel):
         notes: Optional[str] = None
     ) -> bool:
         """Schedule a tour for a lead"""
-        from backend.models.postgresql_models import TourSlot, Lead
+        from models.postgresql_models import TourSlot, Lead
         from sqlalchemy import select, update
         
         async with self.connection_manager.get_session() as session:
@@ -543,7 +543,7 @@ class LeadKernel(BaseKernel):
         if notes:
             updates["tour_notes"] = notes
         
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         from sqlalchemy import update
         async with self.connection_manager.get_session() as session:
             result = await session.execute(

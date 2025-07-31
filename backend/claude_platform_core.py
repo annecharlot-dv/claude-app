@@ -61,7 +61,7 @@ class ClaudePlatformCore:
             return self.active_modules[tenant_id]
         
         # Get tenant data
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import select
         
         result = await self.session.execute(select(Tenant).where(Tenant.id == tenant_id))
@@ -152,7 +152,7 @@ class ClaudePlatformCore:
             metric_name = metric_config["name"]
             
             # Calculate metric based on type and name
-            from backend.models.postgresql_models import User, Booking, Page, Lead
+            from models.postgresql_models import User, Booking, Page, Lead
             from sqlalchemy import select, func
             
             if metric_name == "active_users" or metric_name == "active_members":
@@ -200,7 +200,7 @@ class ClaudePlatformCore:
         for name, kernel in self.kernels.items():
             kernel_health[name] = await kernel.get_kernel_health()
         
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import select, func
         
         result = await self.session.execute(

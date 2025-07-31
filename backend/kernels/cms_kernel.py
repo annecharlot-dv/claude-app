@@ -5,7 +5,7 @@ Universal content management and website building engine
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from kernels.base_kernel import BaseKernel
-from backend.models.postgresql_models import Page, Template, Widget, User
+from models.postgresql_models import Page, Template, Widget, User
 from sqlalchemy import select, update, delete
 
 

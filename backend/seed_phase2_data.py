@@ -20,7 +20,7 @@ connection_manager = PostgreSQLConnectionManager()
 async def seed_phase2_data():
     print("🌱 Seeding Phase 2 demo data...")
     
-    from backend.models.postgresql_models import Tenant, User
+    from models.postgresql_models import Tenant, User
     from sqlalchemy import select
     
     async with connection_manager.get_session() as session:

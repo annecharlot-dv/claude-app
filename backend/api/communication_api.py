@@ -170,7 +170,7 @@ async def get_template(
 ):
     """Get template by ID"""
     try:
-        from backend.models.postgresql_models import MessageTemplate
+        from models.postgresql_models import MessageTemplate
         from sqlalchemy import select
         
         async with comm_kernel.connection_manager.get_session() as session:
@@ -354,7 +354,7 @@ async def list_messages(
         if status_filter:
             query["status"] = status_filter
         
-        from backend.models.postgresql_models import MessageQueue
+        from models.postgresql_models import MessageQueue
         from sqlalchemy import select
         
         async with comm_kernel.connection_manager.get_session() as session:
@@ -515,7 +515,7 @@ async def get_queue_status(
 ):
     """Get message queue status"""
     try:
-        from backend.models.postgresql_models import MessageQueue
+        from models.postgresql_models import MessageQueue
         from sqlalchemy import select, func
         
         async with comm_kernel.connection_manager.get_session() as session:

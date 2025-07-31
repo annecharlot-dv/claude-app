@@ -49,7 +49,7 @@ async def create_test_data(connection_manager):
     """Create test data for performance testing"""
     logger.info("Creating test data...")
     
-    from backend.models.postgresql_models import Tenant, User, Page, Lead
+    from models.postgresql_models import Tenant, User, Page, Lead
     from sqlalchemy import delete
     import uuid
     
@@ -121,7 +121,7 @@ async def cleanup_test_data(connection_manager):
     """Clean up test data"""
     logger.info("Cleaning up test data...")
     
-    from backend.models.postgresql_models import Tenant, User, Page, Lead
+    from models.postgresql_models import Tenant, User, Page, Lead
     from sqlalchemy import delete
     
     async with connection_manager.get_session() as session:

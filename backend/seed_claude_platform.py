@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from database.config.connection_pool import PostgreSQLConnectionManager
-from backend.models.postgresql_models import Tenant, User, UserPassword, Page, Lead, Form, Template, TourSlot, Tour
+from models.postgresql_models import Tenant, User, UserPassword, Page, Lead, Form, Template, TourSlot, Tour
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import uuid

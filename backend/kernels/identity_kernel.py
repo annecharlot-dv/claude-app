@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import jwt
 from passlib.context import CryptContext
 from kernels.base_kernel import BaseKernel
-from backend.models.postgresql_models import User, UserPassword, Tenant
+from models.postgresql_models import User, UserPassword, Tenant
 from sqlalchemy import select, update
 
 

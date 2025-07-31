@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
 from kernels.base_kernel import BaseKernel
-from backend.models.postgresql_models import Invoice, LineItem, Transaction, Subscription, Product, Payment, User
+from models.postgresql_models import Invoice, LineItem, Transaction, Subscription, Product, Payment, User
 from sqlalchemy import select, update, and_
 
 

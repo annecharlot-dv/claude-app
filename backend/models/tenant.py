@@ -155,7 +155,7 @@ class TenantRepository:
     
     async def create_tenant(self, tenant_data: TenantModel) -> TenantModel:
         """Create a new tenant"""
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:
@@ -174,7 +174,7 @@ class TenantRepository:
     
     async def get_tenant_by_id(self, tenant_id: str) -> Optional[TenantModel]:
         """Get tenant by ID"""
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:
@@ -184,7 +184,7 @@ class TenantRepository:
     
     async def get_tenant_by_subdomain(self, subdomain: str) -> Optional[TenantModel]:
         """Get tenant by subdomain"""
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:
@@ -194,7 +194,7 @@ class TenantRepository:
     
     async def update_tenant(self, tenant_id: str, updates: Dict[str, Any]) -> bool:
         """Update tenant data"""
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import update
         
         async with self.connection_manager.get_session() as session:
@@ -207,7 +207,7 @@ class TenantRepository:
     
     async def delete_tenant(self, tenant_id: str) -> bool:
         """Soft delete tenant (set status to cancelled)"""
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import update
         
         async with self.connection_manager.get_session() as session:
@@ -228,7 +228,7 @@ class TenantRepository:
         offset: int = 0
     ) -> List[TenantModel]:
         """List tenants with filtering"""
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:
@@ -247,7 +247,7 @@ class TenantRepository:
     
     async def get_tenant_stats(self, tenant_id: str) -> Dict[str, Any]:
         """Get tenant usage statistics"""
-        from backend.models.postgresql_models import User, Booking, Page
+        from models.postgresql_models import User, Booking, Page
         from sqlalchemy import select, func
         
         tenant = await self.get_tenant_by_id(tenant_id)
@@ -288,7 +288,7 @@ class TenantRepository:
     
     async def update_usage_stats(self, tenant_id: str, stats: Dict[str, Any]):
         """Update tenant usage statistics"""
-        from backend.models.postgresql_models import Tenant
+        from models.postgresql_models import Tenant
         from sqlalchemy import update
         
         async with self.connection_manager.get_session() as session:

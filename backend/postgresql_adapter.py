@@ -72,7 +72,7 @@ class PostgreSQLAdapter:
     async def get_user_by_email(self, email: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get user by email with tenant filtering"""
         
-        from backend.models.postgresql_models import User
+        from models.postgresql_models import User
         from sqlalchemy import select
         
         async with self.conn_manager.get_session() as session:
@@ -85,7 +85,7 @@ class PostgreSQLAdapter:
     async def get_user_by_id(self, user_id: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get user by ID with tenant filtering"""
         
-        from backend.models.postgresql_models import User
+        from models.postgresql_models import User
         from sqlalchemy import select
         
         async with self.conn_manager.get_session() as session:
@@ -138,7 +138,7 @@ class PostgreSQLAdapter:
     async def get_page_by_slug(self, slug: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get page by slug with tenant filtering"""
         
-        from backend.models.postgresql_models import Page
+        from models.postgresql_models import Page
         from sqlalchemy import select
         
         async with self.conn_manager.get_session() as session:
@@ -209,7 +209,7 @@ class PostgreSQLAdapter:
     async def get_lead_by_email(self, email: str, tenant_id: str) -> Optional[Dict[str, Any]]:
         """Get lead by email with tenant filtering"""
         
-        from backend.models.postgresql_models import Lead
+        from models.postgresql_models import Lead
         from sqlalchemy import select
         
         async with self.conn_manager.get_session() as session:

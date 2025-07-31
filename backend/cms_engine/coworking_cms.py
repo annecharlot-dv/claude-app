@@ -16,7 +16,7 @@ class CoworkingCMSEngine(BaseKernel):
     
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user belongs to tenant"""
-        from backend.models.postgresql_models import User
+        from models.postgresql_models import User
         from sqlalchemy import select
         
         async with self.connection_manager.get_session() as session:
@@ -403,7 +403,7 @@ class CoworkingCMSEngine(BaseKernel):
         
         elif block_type == "community_stats":
             # Fetch real community statistics
-            from backend.models.postgresql_models import User
+            from models.postgresql_models import User
             from sqlalchemy import select, func
             
             async with self.connection_manager.get_session() as session:

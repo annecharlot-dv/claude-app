@@ -351,3 +351,360 @@ class Tour(Base):
         Index('idx_tours_tenant_scheduled', 'tenant_id', 'scheduled_at'),
         Index('idx_tours_status_created', 'status', 'created_at'),
     )
+
+class Resource(Base):
+    """Resource model for bookable resources"""
+    __tablename__ = 'resources'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    type = Column(String(100), nullable=False, index=True)
+    description = Column(Text)
+    capacity = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True, index=True)
+    
+    # JSONB for resource configuration
+    config = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_resources_tenant_type', 'tenant_id', 'type'),
+        Index('idx_resources_config_gin', 'config', postgresql_using='gin'),
+    )
+
+class Booking(Base):
+    """Booking model for resource reservations"""
+    __tablename__ = 'bookings'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    resource_id = Column(UUID(as_uuid=True), ForeignKey('resources.id'), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    status = Column(String(50), default='confirmed', index=True)
+    notes = Column(Text)
+    
+    # JSONB for booking metadata
+    booking_metadata = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_bookings_tenant_resource', 'tenant_id', 'resource_id'),
+        Index('idx_bookings_time_range', 'start_time', 'end_time'),
+        Index('idx_bookings_status_created', 'status', 'created_at'),
+        Index('idx_bookings_metadata_gin', 'booking_metadata', postgresql_using='gin'),
+    )
+
+class AvailabilitySchedule(Base):
+    """Availability schedule for resources"""
+    __tablename__ = 'availability_schedules'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    resource_id = Column(UUID(as_uuid=True), ForeignKey('resources.id'), nullable=False, index=True)
+    day_of_week = Column(Integer, nullable=False, index=True)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    is_available = Column(Boolean, default=True, index=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_availability_resource_day', 'resource_id', 'day_of_week'),
+        Index('idx_availability_time_range', 'start_time', 'end_time'),
+    )
+
+class Product(Base):
+    """Product model for financial transactions"""
+    __tablename__ = 'products'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    price = Column(Integer, nullable=False)  # Price in cents
+    currency = Column(String(3), default='USD')
+    is_active = Column(Boolean, default=True, index=True)
+    
+    # JSONB for product configuration
+    config = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_products_tenant_active', 'tenant_id', 'is_active'),
+        Index('idx_products_config_gin', 'config', postgresql_using='gin'),
+    )
+
+class Invoice(Base):
+    """Invoice model for billing"""
+    __tablename__ = 'invoices'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    invoice_number = Column(String(100), nullable=False, unique=True, index=True)
+    status = Column(String(50), default='draft', index=True)
+    subtotal = Column(Integer, nullable=False)  # Amount in cents
+    tax_amount = Column(Integer, default=0)
+    total_amount = Column(Integer, nullable=False)
+    currency = Column(String(3), default='USD')
+    due_date = Column(DateTime(timezone=True))
+    
+    # JSONB for invoice metadata
+    invoice_metadata = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_invoices_tenant_status', 'tenant_id', 'status'),
+        Index('idx_invoices_due_date', 'due_date'),
+        Index('idx_invoices_metadata_gin', 'invoice_metadata', postgresql_using='gin'),
+    )
+
+class LineItem(Base):
+    """Line item model for invoices"""
+    __tablename__ = 'line_items'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invoice_id = Column(UUID(as_uuid=True), ForeignKey('invoices.id'), nullable=False, index=True)
+    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), index=True)
+    description = Column(String(500), nullable=False)
+    quantity = Column(Integer, default=1)
+    unit_price = Column(Integer, nullable=False)  # Price in cents
+    total_amount = Column(Integer, nullable=False)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_line_items_invoice', 'invoice_id'),
+    )
+
+class Payment(Base):
+    """Payment model for transactions"""
+    __tablename__ = 'payments'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    invoice_id = Column(UUID(as_uuid=True), ForeignKey('invoices.id'), index=True)
+    amount = Column(Integer, nullable=False)  # Amount in cents
+    currency = Column(String(3), default='USD')
+    status = Column(String(50), default='pending', index=True)
+    payment_method = Column(String(50), index=True)
+    external_id = Column(String(255), index=True)
+    
+    # JSONB for payment metadata
+    payment_metadata = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_payments_tenant_status', 'tenant_id', 'status'),
+        Index('idx_payments_external_id', 'external_id'),
+        Index('idx_payments_metadata_gin', 'payment_metadata', postgresql_using='gin'),
+    )
+
+class Transaction(Base):
+    """Transaction model for financial records"""
+    __tablename__ = 'transactions'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), index=True)
+    payment_id = Column(UUID(as_uuid=True), ForeignKey('payments.id'), index=True)
+    transaction_type = Column(String(50), nullable=False, index=True)
+    amount = Column(Integer, nullable=False)  # Amount in cents
+    currency = Column(String(3), default='USD')
+    status = Column(String(50), default='completed', index=True)
+    description = Column(Text)
+    
+    # JSONB for transaction metadata
+    transaction_metadata = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_transactions_tenant_type', 'tenant_id', 'transaction_type'),
+        Index('idx_transactions_status_created', 'status', 'created_at'),
+        Index('idx_transactions_metadata_gin', 'transaction_metadata', postgresql_using='gin'),
+    )
+
+class Subscription(Base):
+    """Subscription model for recurring billing"""
+    __tablename__ = 'subscriptions'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), nullable=False, index=True)
+    status = Column(String(50), default='active', index=True)
+    billing_cycle = Column(String(20), default='monthly')
+    amount = Column(Integer, nullable=False)  # Amount in cents
+    currency = Column(String(3), default='USD')
+    current_period_start = Column(DateTime(timezone=True))
+    current_period_end = Column(DateTime(timezone=True))
+    
+    # JSONB for subscription metadata
+    subscription_metadata = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_subscriptions_tenant_status', 'tenant_id', 'status'),
+        Index('idx_subscriptions_period_end', 'current_period_end'),
+        Index('idx_subscriptions_metadata_gin', 'subscription_metadata', postgresql_using='gin'),
+    )
+
+class MessageTemplate(Base):
+    """Message template model for communications"""
+    __tablename__ = 'message_templates'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    template_type = Column(String(50), nullable=False, index=True)
+    subject = Column(String(500))
+    content = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=True, index=True)
+    
+    # JSONB for template configuration
+    template_config = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_message_templates_tenant_type', 'tenant_id', 'template_type'),
+        Index('idx_message_templates_config_gin', 'template_config', postgresql_using='gin'),
+    )
+
+class Workflow(Base):
+    """Workflow model for automation"""
+    __tablename__ = 'workflows'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    trigger_type = Column(String(50), nullable=False, index=True)
+    is_active = Column(Boolean, default=True, index=True)
+    
+    # JSONB for workflow configuration
+    workflow_config = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_workflows_tenant_trigger', 'tenant_id', 'trigger_type'),
+        Index('idx_workflows_config_gin', 'workflow_config', postgresql_using='gin'),
+    )
+
+class MessageQueue(Base):
+    """Message queue model for communication processing"""
+    __tablename__ = 'message_queue'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    template_id = Column(UUID(as_uuid=True), ForeignKey('message_templates.id'), index=True)
+    message_type = Column(String(50), nullable=False, index=True)
+    status = Column(String(50), default='pending', index=True)
+    subject = Column(String(500))
+    content = Column(Text, nullable=False)
+    scheduled_at = Column(DateTime(timezone=True))
+    sent_at = Column(DateTime(timezone=True))
+    
+    # JSONB for message metadata
+    message_metadata = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_message_queue_tenant_status', 'tenant_id', 'status'),
+        Index('idx_message_queue_scheduled', 'scheduled_at'),
+        Index('idx_message_queue_metadata_gin', 'message_metadata', postgresql_using='gin'),
+    )
+
+class AutomationLog(Base):
+    """Automation log model for tracking workflow executions"""
+    __tablename__ = 'automation_logs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False, index=True)
+    workflow_id = Column(UUID(as_uuid=True), ForeignKey('workflows.id'), nullable=False, index=True)
+    trigger_event = Column(String(100), nullable=False, index=True)
+    status = Column(String(50), default='completed', index=True)
+    execution_time_ms = Column(Integer)
+    error_message = Column(Text)
+    
+    # JSONB for execution details
+    execution_details = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_automation_logs_tenant_workflow', 'tenant_id', 'workflow_id'),
+        Index('idx_automation_logs_status_created', 'status', 'created_at'),
+        Index('idx_automation_logs_details_gin', 'execution_details', postgresql_using='gin'),
+    )
+
+class NotificationPreference(Base):
+    """Notification preference model for user communication settings"""
+    __tablename__ = 'notification_preferences'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    notification_type = Column(String(50), nullable=False, index=True)
+    channel = Column(String(20), nullable=False, index=True)  # email, sms, push
+    is_enabled = Column(Boolean, default=True, index=True)
+    
+    # JSONB for preference settings
+    preference_settings = Column(JSONB, default={})
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Indexes
+    __table_args__ = (
+        UniqueConstraint('user_id', 'notification_type', 'channel', name='unique_user_notification_channel'),
+        Index('idx_notification_preferences_user_type', 'user_id', 'notification_type'),
+        Index('idx_notification_preferences_settings_gin', 'preference_settings', postgresql_using='gin'),
+    )
