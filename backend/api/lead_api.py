@@ -247,6 +247,12 @@ async def update_lead(
     
     # Return updated lead
     updated_lead = await lead_kernel.get_lead_by_id(tenant_id, lead_id)
+    if not updated_lead:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lead not found after update"
+        )
+    
     return LeadResponse(
         id=updated_lead.id,
         first_name=updated_lead.first_name,
