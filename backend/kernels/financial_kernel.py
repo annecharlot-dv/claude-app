@@ -204,3 +204,153 @@ class FinancialKernel(BaseKernel):
             "unpaid_invoice_count": len(unpaid_invoices),
             "overdue_invoice_count": len(overdue_invoices)
         }
+    
+    # Payment Processing
+    async def process_payment(self, tenant_id: str, payment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a payment for an invoice"""
+        invoice_id = payment_data.get("invoice_id")
+        amount = Decimal(str(payment_data.get("amount", 0)))
+        payment_method = payment_data.get("payment_method", "unknown")
+        
+        # Get invoice
+        invoice = await self.db.invoices.find_one({
+            "tenant_id": tenant_id,
+            "id": invoice_id
+        })
+        
+        if not invoice:
+            raise ValueError("Invoice not found")
+        
+        if invoice["status"] == "paid":
+            raise ValueError("Invoice already paid")
+        
+        # Create payment record
+        payment_doc = {
+            "id": f"PAY-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "tenant_id": tenant_id,
+            "invoice_id": invoice_id,
+            "amount": float(amount),
+            "payment_method": payment_method,
+            "status": "completed",
+            "processed_at": datetime.utcnow(),
+            "created_at": datetime.utcnow()
+        }
+        
+        await self.db.payments.insert_one(payment_doc)
+        
+        # Update invoice status
+        if amount >= Decimal(str(invoice["total_amount"])):
+            await self.update_invoice_status(invoice_id, "paid")
+        else:
+            await self.update_invoice_status(invoice_id, "partially_paid")
+        
+        # Create transaction record
+        await self.create_transaction(tenant_id, {
+            "id": f"TXN-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "type": "payment",
+            "amount": float(amount),
+            "description": f"Payment for invoice {invoice_id}",
+            "reference_id": invoice_id,
+            "payment_method": payment_method
+        })
+        
+        return payment_doc
+    
+    async def get_payments(self, tenant_id: str, invoice_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get payments for tenant or specific invoice"""
+        query = {"tenant_id": tenant_id}
+        if invoice_id:
+            query["invoice_id"] = invoice_id
+        
+        payments = await self.db.payments.find(query).sort("processed_at", -1).to_list(1000)
+        return payments
+    
+    # Subscription Billing
+    async def process_subscription_billing(self, tenant_id: str) -> List[Dict[str, Any]]:
+        """Process billing for due subscriptions"""
+        # Find subscriptions due for billing
+        due_subscriptions = await self.db.subscriptions.find({
+            "tenant_id": tenant_id,
+            "status": "active",
+            "next_billing_date": {"$lte": datetime.utcnow()}
+        }).to_list(1000)
+        
+        processed_invoices = []
+        
+        for subscription in due_subscriptions:
+            # Create invoice for subscription
+            line_items = [{
+                "description": subscription.get("description", "Subscription"),
+                "quantity": 1,
+                "unit_price": subscription["amount"]
+            }]
+            
+            invoice = await self.create_invoice(
+                tenant_id=tenant_id,
+                customer_id=subscription["customer_id"],
+                line_items=line_items
+            )
+            
+            # Update next billing date
+            billing_cycle = subscription.get("billing_cycle", "monthly")
+            if billing_cycle == "monthly":
+                next_billing = subscription["next_billing_date"] + timedelta(days=30)
+            elif billing_cycle == "yearly":
+                next_billing = subscription["next_billing_date"] + timedelta(days=365)
+            else:
+                next_billing = subscription["next_billing_date"] + timedelta(days=30)
+            
+            await self.db.subscriptions.update_one(
+                {"id": subscription["id"]},
+                {"$set": {"next_billing_date": next_billing}}
+            )
+            
+            processed_invoices.append(invoice)
+        
+        return processed_invoices
+    
+    # Financial Analytics
+    async def get_financial_dashboard(self, tenant_id: str) -> Dict[str, Any]:
+        """Get financial dashboard data"""
+        # Current month revenue
+        start_of_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_of_month = (start_of_month + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        
+        monthly_revenue = await self.get_revenue_report(tenant_id, start_of_month, end_of_month)
+        outstanding = await self.get_outstanding_balance(tenant_id)
+        
+        # Recent transactions
+        recent_transactions = await self.get_transactions(tenant_id, {
+            "transaction_date": {"$gte": datetime.utcnow() - timedelta(days=30)}
+        })
+        
+        # Active subscriptions
+        active_subscriptions = await self.get_subscriptions(tenant_id)
+        active_subscriptions = [s for s in active_subscriptions if s["status"] == "active"]
+        
+        return {
+            "monthly_revenue": monthly_revenue["total_revenue"],
+            "outstanding_balance": outstanding["total_outstanding"],
+            "overdue_amount": outstanding["overdue_amount"],
+            "active_subscriptions": len(active_subscriptions),
+            "recent_transactions": len(recent_transactions),
+            "monthly_invoice_count": monthly_revenue["invoice_count"]
+        }
+    
+    async def get_kernel_health(self) -> Dict[str, Any]:
+        """Get kernel health status"""
+        try:
+            # Test database connectivity
+            await self.db.invoices.find_one({"tenant_id": "health_check"})
+            
+            return {
+                "status": "healthy",
+                "collections": ["invoices", "line_items", "transactions", "subscriptions", "products", "payments"],
+                "last_check": datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "last_check": datetime.utcnow().isoformat()
+            }

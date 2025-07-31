@@ -10,6 +10,7 @@ from kernels import (
     IdentityKernel, BookingKernel, FinancialKernel, 
     CMSKernel, CommunicationKernel
 )
+from kernels.lead_kernel import LeadKernel
 from modules import BaseModule
 from modules.module_registry import load_tenant_module
 
@@ -44,7 +45,8 @@ class ClaudePlatformCore:
             'booking': BookingKernel(self.db),
             'financial': FinancialKernel(self.db),
             'cms': CMSKernel(self.db),
-            'communication': CommunicationKernel(self.db)
+            'communication': CommunicationKernel(self.db),
+            'lead': LeadKernel(self.db)
         }
     
     async def initialize(self):

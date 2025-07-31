@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@modelcontextprotocol/server-github": "^2025.4.8",
+    "@payloadcms/db-postgres": "^3.49.1",
+    "@payloadcms/richtext-slate": "^3.49.1",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "payload": "^3.49.1"
+  }
+}

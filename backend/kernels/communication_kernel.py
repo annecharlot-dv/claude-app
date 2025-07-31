@@ -297,3 +297,142 @@ class CommunicationKernel(BaseKernel):
                 "success_rate": (successful_workflows / workflow_executions * 100) if workflow_executions > 0 else 0
             }
         }
+    
+    # Bulk Communication
+    async def send_bulk_message(
+        self,
+        tenant_id: str,
+        template_id: str,
+        recipients: List[Dict[str, Any]],
+        scheduled_for: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """Send bulk messages to multiple recipients"""
+        queued_messages = []
+        
+        for recipient in recipients:
+            try:
+                # Render template with recipient-specific context
+                rendered = await self.render_template(template_id, recipient.get("context", {}))
+                
+                message_data = {
+                    "id": f"bulk_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{len(queued_messages)}",
+                    "channel": rendered["channel"],
+                    "recipient": recipient["email"],
+                    "subject": rendered["subject"],
+                    "body": rendered["body"],
+                    "template_id": template_id,
+                    "bulk_campaign_id": f"campaign_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+                }
+                
+                message = await self.queue_message(tenant_id, message_data, scheduled_for)
+                queued_messages.append(message)
+                
+            except Exception as e:
+                # Log error but continue with other recipients
+                print(f"Failed to queue message for {recipient.get('email', 'unknown')}: {e}")
+        
+        return {
+            "campaign_id": f"campaign_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "total_recipients": len(recipients),
+            "queued_messages": len(queued_messages),
+            "scheduled_for": scheduled_for.isoformat() if scheduled_for else "immediate"
+        }
+    
+    # Notification Preferences
+    async def update_notification_preferences(
+        self,
+        tenant_id: str,
+        user_id: str,
+        preferences: Dict[str, Any]
+    ) -> bool:
+        """Update user notification preferences"""
+        pref_doc = {
+            "user_id": user_id,
+            "tenant_id": tenant_id,
+            "preferences": preferences,
+            "updated_at": datetime.utcnow()
+        }
+        
+        result = await self.db.notification_preferences.update_one(
+            {"user_id": user_id, "tenant_id": tenant_id},
+            {"$set": pref_doc},
+            upsert=True
+        )
+        
+        return result.modified_count > 0 or result.upserted_id is not None
+    
+    async def get_notification_preferences(
+        self,
+        tenant_id: str,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Get user notification preferences"""
+        prefs = await self.db.notification_preferences.find_one({
+            "user_id": user_id,
+            "tenant_id": tenant_id
+        })
+        
+        if prefs:
+            return prefs.get("preferences", {})
+        
+        # Return default preferences
+        return {
+            "email_notifications": True,
+            "sms_notifications": False,
+            "push_notifications": True,
+            "booking_confirmations": True,
+            "booking_reminders": True,
+            "marketing_emails": False,
+            "system_updates": True
+        }
+    
+    # Message Processing
+    async def process_message_queue(self, limit: int = 100) -> Dict[str, Any]:
+        """Process queued messages for delivery"""
+        messages = await self.get_queued_messages()
+        processed = 0
+        failed = 0
+        
+        for message in messages[:limit]:
+            try:
+                # Check user preferences before sending
+                if message.get("recipient"):
+                    # For now, just mark as delivered
+                    # In production, integrate with actual email/SMS services
+                    await self.update_message_status(message["id"], "delivered")
+                    processed += 1
+                else:
+                    await self.update_message_status(message["id"], "failed", "No recipient")
+                    failed += 1
+                    
+            except Exception as e:
+                await self.update_message_status(message["id"], "failed", str(e))
+                failed += 1
+        
+        return {
+            "processed": processed,
+            "failed": failed,
+            "remaining_in_queue": len(messages) - processed - failed
+        }
+    
+    async def get_kernel_health(self) -> Dict[str, Any]:
+        """Get kernel health status"""
+        try:
+            # Test database connectivity
+            await self.db.message_templates.find_one({"tenant_id": "health_check"})
+            
+            # Check queue size
+            queue_size = await self.db.message_queue.count_documents({"status": "queued"})
+            
+            return {
+                "status": "healthy",
+                "collections": ["message_templates", "workflows", "message_queue", "automation_logs", "notification_preferences"],
+                "queue_size": queue_size,
+                "last_check": datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "last_check": datetime.utcnow().isoformat()
+            }

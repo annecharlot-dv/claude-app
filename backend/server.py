@@ -2,10 +2,20 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
+
+# Import database components
+from database.postgresql_connection import get_connection_manager, get_db_session
+from kernels.postgresql_identity_kernel import PostgreSQLIdentityKernel
+from models.cross_db_models import Base
+
+# Import performance optimizations
+from performance.database_optimizer import get_db_optimizer
+from performance.cache_manager import get_cache_manager
+from performance.monitor import get_performance_monitor, monitor_performance
+from performance.api_optimizer import PerformanceMiddleware, cache_response
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any, Union
 import uuid
@@ -21,14 +31,21 @@ from claude_platform_core import initialize_platform, get_platform_core
 # Import Enhanced CMS Engine
 from cms_engine.coworking_cms import CoworkingCMSEngine
 
+# Import multi-tenant components
+from models.tenant import TenantRepository, TenantService
+from middleware.tenant_middleware import TenantMiddleware
+from api.tenant_api import router as tenant_router
+from api.lead_api import router as lead_router
+from api.financial_api import router as financial_router
+from api.communication_api import router as communication_router
+from api.health_api import router as health_router
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# PostgreSQL connection
+connection_manager = None
 
 # Security
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
@@ -39,13 +56,58 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 # Create the main app
-app = FastAPI(title="Claude - Space-as-a-Service Platform", version="3.0.0")
+app = FastAPI(
+    title="Claude - Space-as-a-Service Platform", 
+    version="3.0.0",
+    docs_url="/api/docs" if os.getenv("ENVIRONMENT") != "production" else None,
+    redoc_url="/api/redoc" if os.getenv("ENVIRONMENT") != "production" else None
+)
+
+# Add performance middleware
+app.add_middleware(PerformanceMiddleware, enable_caching=True, enable_compression=True)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize PostgreSQL connection and kernels on startup"""
+    global connection_manager, identity_kernel, platform_core
+    
+    try:
+        # Initialize PostgreSQL connection
+        connection_manager = await get_connection_manager()
+        await connection_manager.initialize()
+        
+        # Initialize identity kernel
+        async with connection_manager.get_session() as session:
+            identity_kernel = PostgreSQLIdentityKernel(session, SECRET_KEY)
+        
+        # Initialize platform core (if needed)
+        # platform_core = await initialize_platform(connection_manager)
+        
+        logger.info("✅ PostgreSQL backend initialized successfully")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize PostgreSQL backend: {e}")
+        raise
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up PostgreSQL connections on shutdown"""
+    global connection_manager
+    
+    try:
+        if connection_manager:
+            await connection_manager.close()
+        logger.info("✅ PostgreSQL connections closed")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during shutdown: {e}")
+
 # Global platform core instance
 platform_core = None
+identity_kernel = None
 
 # Enums
 class UserRole(str, Enum):
@@ -334,9 +396,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
-    """Get current user using identity kernel"""
-    core = await get_platform_core(db)
-    identity_kernel = core.get_kernel('identity')
+    """Get current user using PostgreSQL identity kernel"""
+    global identity_kernel
+    
+    if not identity_kernel:
+        raise HTTPException(status_code=500, detail="Identity kernel not initialized")
     
     # Verify token
     user_id = await identity_kernel.verify_token(credentials.credentials)
@@ -375,9 +439,11 @@ def require_role(required_roles: List[UserRole]):
 # Authentication routes
 @api_router.post("/auth/register", response_model=Token)
 async def register_user(user_data: UserCreate, tenant_subdomain: str):
-    """Register new user using identity kernel"""
-    core = await get_platform_core(db)
-    identity_kernel = core.get_kernel('identity')
+    """Register new user using PostgreSQL identity kernel"""
+    global identity_kernel
+    
+    if not identity_kernel:
+        raise HTTPException(status_code=500, detail="Identity kernel not initialized")
     
     # Find tenant
     tenant = await identity_kernel.get_tenant_by_subdomain(tenant_subdomain)
@@ -385,7 +451,7 @@ async def register_user(user_data: UserCreate, tenant_subdomain: str):
         raise HTTPException(status_code=404, detail="Tenant not found")
     
     # Check if user already exists
-    existing_user = await db.users.find_one({"email": user_data.email, "tenant_id": tenant["id"]})
+    existing_user = await identity_kernel.get_user_by_email(tenant["id"], user_data.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="User already registered")
     
@@ -402,16 +468,15 @@ async def register_user(user_data: UserCreate, tenant_subdomain: str):
         timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
-    # Get module and translate response
-    user_response = await core.translate_response(tenant["id"], created_user)
-    
-    return Token(access_token=access_token, user=User(**user_response))
+    return Token(access_token=access_token, user=User(**created_user))
 
 @api_router.post("/auth/login", response_model=Token)
 async def login_user(user_data: UserLogin, tenant_subdomain: str):
-    """Login user using identity kernel"""
-    core = await get_platform_core(db)
-    identity_kernel = core.get_kernel('identity')
+    """Login user using PostgreSQL identity kernel"""
+    global identity_kernel
+    
+    if not identity_kernel:
+        raise HTTPException(status_code=500, detail="Identity kernel not initialized")
     
     # Authenticate user
     auth_result = await identity_kernel.authenticate_user(
@@ -423,19 +488,13 @@ async def login_user(user_data: UserLogin, tenant_subdomain: str):
     if not auth_result:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    user_info = auth_result
-    tenant_info = auth_result["tenant"]
-    
     # Create access token
     access_token = await identity_kernel.create_access_token(
-        user_info["id"],
+        auth_result["id"],
         timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
-    # Translate response using tenant's module
-    user_response = await core.translate_response(tenant_info["id"], user_info)
-    
-    return Token(access_token=access_token, user=User(**user_response))
+    return Token(access_token=access_token, user=User(**auth_result))
 
 # Tenant management
 @api_router.post("/tenants", response_model=Tenant)
@@ -583,11 +642,29 @@ def get_default_page_content(industry_module: IndustryModule) -> List[Dict[str, 
 
 # CMS Routes
 @api_router.get("/cms/pages", response_model=List[Page])
+@cache_response(ttl=1800, tags=["pages"])  # Cache for 30 minutes
+@monitor_performance("api_response")
 async def get_pages(
+    status: Optional[PageStatus] = None,
+    limit: int = 25,
+    skip: int = 0,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER]))
 ):
-    pages = await db.pages.find({"tenant_id": current_user.tenant_id}).to_list(1000)
-    return [Page(**page) for page in pages]
+    # Use optimized database query
+    db_optimizer = await get_db_optimizer(db)
+    
+    query = {"tenant_id": current_user.tenant_id}
+    if status:
+        query["status"] = status
+    
+    options = {
+        "sort": [("updated_at", -1)],
+        "limit": limit,
+        "skip": skip
+    }
+    
+    pages_data = await db_optimizer.optimize_query("pages", query, options)
+    return [Page(**page) for page in pages_data]
 
 @api_router.post("/cms/pages", response_model=Page)
 async def create_page(
@@ -772,19 +849,33 @@ async def submit_form(
 
 # Lead Management Routes
 @api_router.get("/leads", response_model=List[Lead])
+@cache_response(ttl=300, tags=["leads"])  # Cache for 5 minutes
+@monitor_performance("api_response")
 async def get_leads(
     status: Optional[LeadStatus] = None,
     assigned_to: Optional[str] = None,
+    limit: int = 50,
+    skip: int = 0,
     current_user: User = Depends(require_role([UserRole.ACCOUNT_OWNER, UserRole.ADMINISTRATOR, UserRole.PROPERTY_MANAGER, UserRole.FRONT_DESK]))
 ):
+    # Use optimized database query
+    db_optimizer = await get_db_optimizer(db)
+    
     query = {"tenant_id": current_user.tenant_id}
     if status:
         query["status"] = status
     if assigned_to:
         query["assigned_to"] = assigned_to
     
-    leads = await db.leads.find(query).sort("created_at", -1).to_list(1000)
-    return [Lead(**lead) for lead in leads]
+    options = {
+        "sort": [("created_at", -1)],
+        "limit": limit,
+        "skip": skip,
+        "tenant_id": current_user.tenant_id
+    }
+    
+    leads_data = await db_optimizer.optimize_query("leads", query, options)
+    return [Lead(**lead) for lead in leads_data]
 
 @api_router.post("/leads", response_model=Lead)
 async def create_lead(
@@ -1232,14 +1323,190 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Global repositories
+tenant_repo = None
+
 # Add platform initialization
 @app.on_event("startup")
 async def startup_event():
     """Initialize the Claude Platform on startup"""
-    global platform_core
+    global platform_core, tenant_repo
+    
+    # Initialize tenant repository
+    tenant_repo = TenantRepository(db)
+    await tenant_repo.initialize()
+    app.state.tenant_repo = tenant_repo
+    
+    # Add tenant middleware
+    app.add_middleware(TenantMiddleware, tenant_repo=tenant_repo)
+    
+    # Initialize platform core
     platform_core = await initialize_platform(db)
     print("🚀 Claude Platform Core initialized successfully!")
+    
+    # Include API routers
+    app.include_router(tenant_router)
+    app.include_router(lead_router)
+    app.include_router(financial_router)
+    app.include_router(communication_router)
+    app.include_router(health_router)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+# Performance Monitoring Routes
+@api_router.get("/performance/metrics")
+async def get_performance_metrics(
+    hours: int = 1,
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.ACCOUNT_OWNER]))
+):
+    """Get performance metrics summary"""
+    monitor = await get_performance_monitor()
+    return await monitor.get_metrics_summary(hours)
+
+@api_router.get("/performance/alerts")
+async def get_performance_alerts(
+    hours: int = 24,
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.ACCOUNT_OWNER]))
+):
+    """Get performance alerts"""
+    monitor = await get_performance_monitor()
+    return await monitor.get_alerts(hours)
+
+@api_router.get("/performance/slow-queries")
+async def get_slow_queries(
+    limit: int = 10,
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.ACCOUNT_OWNER]))
+):
+    """Get slowest database queries"""
+    monitor = await get_performance_monitor()
+    return await monitor.get_slow_queries(limit)
+
+@api_router.get("/performance/tenant/{tenant_id}")
+async def get_tenant_performance(
+    tenant_id: str,
+    hours: int = 1,
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.ACCOUNT_OWNER]))
+):
+    """Get performance metrics for specific tenant"""
+    # Ensure user can only access their own tenant data (unless platform admin)
+    if current_user.role != UserRole.PLATFORM_ADMIN and current_user.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    monitor = await get_performance_monitor()
+    return await monitor.get_tenant_performance(tenant_id, hours)
+
+@api_router.get("/performance/cache/stats")
+async def get_cache_stats(
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.ACCOUNT_OWNER]))
+):
+    """Get cache performance statistics"""
+    cache_manager = await get_cache_manager()
+    return await cache_manager.get_stats()
+
+@api_router.post("/performance/cache/invalidate")
+async def invalidate_cache(
+    pattern: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN, UserRole.ACCOUNT_OWNER]))
+):
+    """Invalidate cache entries"""
+    cache_manager = await get_cache_manager()
+    
+    # Restrict tenant users to their own data
+    if current_user.role != UserRole.PLATFORM_ADMIN:
+        if tags:
+            tags = [tag for tag in tags if tag.startswith(f"tenant:{current_user.tenant_id}")]
+        else:
+            tags = [f"tenant:{current_user.tenant_id}"]
+    
+    invalidated_count = await cache_manager.invalidate(pattern=pattern, tags=tags)
+    return {"invalidated_count": invalidated_count}
+
+@api_router.get("/performance/database/stats")
+async def get_database_stats(
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN]))
+):
+    """Get database performance statistics"""
+    db_optimizer = await get_db_optimizer(db)
+    return await db_optimizer.get_performance_metrics()
+
+@api_router.post("/performance/database/analyze/{collection}")
+async def analyze_collection_performance(
+    collection: str,
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN]))
+):
+    """Analyze performance of a specific collection"""
+    db_optimizer = await get_db_optimizer(db)
+    return await db_optimizer.analyze_collection_performance(collection)
+
+@api_router.post("/performance/database/cleanup")
+async def cleanup_old_data(
+    current_user: User = Depends(require_role([UserRole.PLATFORM_ADMIN]))
+):
+    """Clean up old data to maintain performance"""
+    db_optimizer = await get_db_optimizer(db)
+    return await db_optimizer.cleanup_old_data()
+
+# Health check endpoint with performance metrics
+@api_router.get("/health")
+async def health_check():
+    """Enhanced health check with performance metrics"""
+    try:
+        # Check database connection
+        await db.command("ping")
+        
+        # Get basic performance metrics
+        monitor = await get_performance_monitor()
+        cache_manager = await get_cache_manager()
+        
+        metrics_summary = await monitor.get_metrics_summary(hours=1)
+        cache_stats = await cache_manager.get_stats()
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "database": "connected",
+            "performance": {
+                "avg_response_time": metrics_summary.get("metrics", {}).get("response_time", {}).get("avg", 0),
+                "cache_hit_rate": cache_stats.get("hit_rate", 0),
+                "total_requests": metrics_summary.get("total_metrics", 0)
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "error": str(e)
+        }
+
+# Initialize performance monitoring on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize performance monitoring and optimizations"""
+    try:
+        # Initialize database optimizer
+        db_optimizer = await get_db_optimizer(db)
+        logger.info("✅ Database optimizer initialized")
+        
+        # Start performance monitoring
+        monitor = await get_performance_monitor()
+        await monitor.start_monitoring()
+        logger.info("✅ Performance monitoring started")
+        
+        # Initialize platform core
+        await initialize_platform(db)
+        logger.info("✅ Platform core initialized")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize performance systems: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    try:
+        monitor = await get_performance_monitor()
+        await monitor.stop_monitoring()
+        logger.info("✅ Performance monitoring stopped")
+    except Exception as e:
+        logger.error(f"❌ Error during shutdown: {e}")
