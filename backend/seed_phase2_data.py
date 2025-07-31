@@ -85,6 +85,7 @@ async def seed_phase2_data():
         }
     ]
     
+    async with connection_manager.get_session() as session:
         for profile_update in profile_updates:
             if profile_update["email"] in user_map:
                 from sqlalchemy import update
@@ -95,6 +96,8 @@ async def seed_phase2_data():
                     ).values(profile=profile_update["profile"])
                 )
                 print(f"✅ Updated profile for {profile_update['email']}")
+        
+        await session.commit()
     
     # Create demo events
     now = datetime.utcnow()
@@ -201,8 +204,8 @@ async def seed_phase2_data():
         }
     ]
     
-        for event in events:
-            print(f"✅ Would create event: {event['title']}")
+    for event in events:
+        print(f"✅ Would create event: {event['title']}")
     
     # Create some check-in records for demo
     checkins = [
@@ -228,8 +231,8 @@ async def seed_phase2_data():
         }
     ]
     
-        for checkin in checkins:
-            print(f"✅ Would create check-in record for user")
+    for checkin in checkins:
+        print(f"✅ Would create check-in record for user")
     
     # Update resources with enhanced pricing and member benefits
     resources_updates = [
@@ -275,11 +278,11 @@ async def seed_phase2_data():
         }
     ]
     
-        # Update resources (assuming Resource model exists)
-        for resource_update in resources_updates:
-            print(f"✅ Would update resource: {resource_update['name']}")
+    # Update resources (assuming Resource model exists)
+    for resource_update in resources_updates:
+        print(f"✅ Would update resource: {resource_update['name']}")
         
-        await session.commit()
+    print("✅ Phase 2 data processing complete")
     
     print("\n🎉 Phase 2 demo data seeded successfully!")
     print("\nNew Features Available:")
