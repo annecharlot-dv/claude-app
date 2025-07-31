@@ -8,6 +8,16 @@ import css from "@eslint/css";
 import { defineConfig } from "eslint/config";
 
 export default defineConfig([
+  // Add this block at the very top of the array
+  {
+    ignores: [
+      ".kiro/",         // Ignore the directory causing the crash
+      "node_modules/",  // Standard practice: ignore dependencies
+      "dist/",          // Standard practice: ignore build output
+    ]
+  },
+
+  // The rest of your configuration remains the same
   { files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: {...globals.browser, ...globals.node} } },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
