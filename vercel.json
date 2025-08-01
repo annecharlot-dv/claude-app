@@ -42,7 +42,6 @@
       "INLINE_RUNTIME_CHUNK": "false"
     }
   },
-  "regions": ["iad1", "sfo1", "lhr1"],
   "headers": [
     {
       "source": "/api/(.*)",
