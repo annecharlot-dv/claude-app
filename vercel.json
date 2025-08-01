@@ -39,8 +39,7 @@
     "env": {
       "SKIP_PREFLIGHT_CHECK": "true",
       "GENERATE_SOURCEMAP": "false",
-      "INLINE_RUNTIME_CHUNK": "false",
-      "NODE_VERSION": "20"
+      "INLINE_RUNTIME_CHUNK": "false"
     }
   },
   "functions": {
