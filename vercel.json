@@ -42,13 +42,6 @@
       "INLINE_RUNTIME_CHUNK": "false"
     }
   },
-  "functions": {
-    "backend/server.py": {
-      "maxDuration": 30,
-      "memory": 1024,
-      "runtime": "python3.11"
-    }
-  },
   "regions": ["iad1", "sfo1", "lhr1"],
   "headers": [
     {
