@@ -70,7 +70,7 @@ export const applyIndustryValidation: CollectionBeforeChangeHook = async ({
 
   if (!tenant) return data;
 
-  const industryConfig = INDUSTRY_CONFIGS[tenant.industryModule];
+  const industryConfig = (INDUSTRY_CONFIGS as any)[tenant.industryModule];
   if (!industryConfig) return data;
 
   // Apply industry-specific validation based on collection
@@ -95,8 +95,8 @@ const validateUserForIndustry = (data: any, config: any) => {
       member: config.userRoles[0], // First role is typically the basic user
     };
     
-    if (roleMapping[data.role]) {
-      data.role = roleMapping[data.role];
+    if ((roleMapping as any)[data.role]) {
+      data.role = (roleMapping as any)[data.role];
     }
   }
 
@@ -153,7 +153,7 @@ export const getIndustryOptions: FieldHook = async ({
 
   if (!tenant) return [];
 
-  const industryConfig = INDUSTRY_CONFIGS[tenant.industryModule];
+  const industryConfig = (INDUSTRY_CONFIGS as any)[tenant.industryModule];
   return industryConfig ? Object.keys(industryConfig) : [];
 };
 
@@ -192,7 +192,7 @@ export const customizeFieldLabels = (industryModule: string) => {
     },
   };
 
-  return labelMappings[industryModule] || {};
+  return (labelMappings as any)[industryModule] || {};
 };
 
 // Export industry configurations for use in field definitions

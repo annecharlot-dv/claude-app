@@ -21,7 +21,7 @@ const invalidateCache = async (
   operation: 'create' | 'update' | 'delete',
   doc?: any
 ) => {
-  const patterns = CACHE_PATTERNS[collection] || [collection];
+  const patterns = (CACHE_PATTERNS as any)[collection] || [collection];
   
   try {
     // Call your cache invalidation API

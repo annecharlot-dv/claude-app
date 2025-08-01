@@ -1,11 +1,10 @@
 import { buildConfig } from 'payload/config';
-import { postgresAdapter } from '@payloadcms/db-postgres';
 import { webpackBundler } from '@payloadcms/bundler-webpack';
 import { slateEditor } from '@payloadcms/richtext-slate';
+import { postgresAdapter } from '@payloadcms/db-postgres';
+import { CollectionConfig } from 'payload/types';
 import path from 'path';
 
-// Import PostgreSQL integration plugin
-import { postgresqlOptimizationPlugin } from './payload/adapters/postgresql-integration';
 
 // Import custom fields and hooks
 import { 
@@ -31,7 +30,7 @@ import {
 } from './payload/hooks/performance-tracking';
 
 // Multi-tenant collections
-const Users = {
+const Users: CollectionConfig = {
   slug: 'users',
   auth: {
     tokenExpiration: 7200, // 2 hours
@@ -137,7 +136,7 @@ const Users = {
   },
 };
 
-const Tenants = {
+const Tenants: CollectionConfig = {
   slug: 'tenants',
   admin: {
     useAsTitle: 'name',
@@ -229,7 +228,7 @@ const Tenants = {
   },
 };
 
-const Pages = {
+const Pages: CollectionConfig = {
   slug: 'pages',
   admin: {
     useAsTitle: 'title',
@@ -277,7 +276,6 @@ const Pages = {
             'blockquote',
             'ul',
             'ol',
-            'li',
             'link',
             'textAlign',
           ],
@@ -403,7 +401,7 @@ const Pages = {
   },
 };
 
-const Leads = {
+const Leads: CollectionConfig = {
   slug: 'leads',
   admin: {
     useAsTitle: 'email',
@@ -564,31 +562,10 @@ export default buildConfig({
   admin: {
     user: Users.slug,
     bundler: webpackBundler(),
-    webpack: (config) => {
-      // Optimize webpack for performance
-      return {
-        ...config,
-        optimization: {
-          ...config.optimization,
-          splitChunks: {
-            chunks: 'all',
-            cacheGroups: {
-              vendor: {
-                test: /[\\/]node_modules[\\/]/,
-                name: 'vendors',
-                chunks: 'all',
-              },
-            },
-          },
-        },
-      };
-    },
   },
   editor: slateEditor({}),
   collections: [Users, Tenants, Pages, Leads],
-  plugins: [
-    postgresqlOptimizationPlugin(),
-  ],
+  plugins: [],
   typescript: {
     outputFile: path.resolve(__dirname, 'payload-types.ts'),
   },
@@ -597,21 +574,7 @@ export default buildConfig({
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URL,
-      // Connection pool optimization
-      max: 20,
-      min: 5,
-      idle: 10000,
-      acquire: 60000,
-      evict: 1000,
-    },
-    // Enable advanced PostgreSQL features
-    prodMigrations: path.resolve(__dirname, 'database/migrations'),
-    migrationDir: path.resolve(__dirname, 'database/migrations'),
-    // Performance optimizations
-    transactionOptions: {
-      isolationLevel: 'READ_COMMITTED',
-      readOnly: false,
+      connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/claude-app',
     },
   }),
   serverURL: process.env.PAYLOAD_PUBLIC_SERVER_URL || 'http://localhost:3000',
@@ -625,66 +588,15 @@ export default buildConfig({
   ],
   // Performance and security settings
   rateLimit: {
-    max: 1000, // requests per windowMs
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000,
+    window: 15 * 60 * 1000,
     skip: (req) => {
-      // Skip rate limiting for internal API calls
       return req.headers['x-internal-api'] === 'true';
     },
   },
   // Enable caching
-  express: {
-    compression: true,
-    json: {
-      limit: '2mb',
-    },
-    urlencoded: {
-      limit: '2mb',
-      extended: true,
-    },
-  },
   // Localization support
-  localization: {
-    locales: ['en', 'es', 'fr', 'de'],
-    defaultLocale: 'en',
-    fallback: true,
-  },
   // File upload optimization
-  upload: {
-    limits: {
-      fileSize: 5000000, // 5MB
-    },
-  },
   // Email configuration
-  email: {
-    transportOptions: {
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    },
-    fromName: 'Claude Platform',
-    fromAddress: process.env.SMTP_FROM || 'noreply@claude-platform.com',
-  },
   // Hooks for performance monitoring
-  hooks: {
-    beforeChange: [
-      ({ req }) => {
-        // Log performance metrics
-        req.startTime = Date.now();
-      },
-    ],
-    afterChange: [
-      ({ req, doc, operation }) => {
-        // Record operation performance
-        if (req.startTime) {
-          const duration = Date.now() - req.startTime;
-          console.log(`${operation} operation took ${duration}ms for ${req.collection?.config?.slug}`);
-        }
-      },
-    ],
-  },
 });

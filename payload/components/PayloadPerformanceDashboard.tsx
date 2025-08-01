@@ -64,7 +64,7 @@ const PayloadPerformanceDashboard: React.FC = () => {
       });
       
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as PayloadMetrics;
         setMetrics(data);
       }
     } catch (error) {
@@ -109,7 +109,7 @@ const PayloadPerformanceDashboard: React.FC = () => {
         <div className="flex space-x-4">
           <select
             value={timeRange}
-            onChange={(e) => setTimeRange(Number(e.target.value))}
+            onChange={(e) => setTimeRange(Number((e.target as HTMLSelectElement).value))}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value={1}>Last Hour</option>
@@ -121,7 +121,7 @@ const PayloadPerformanceDashboard: React.FC = () => {
             <input
               type="checkbox"
               checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
+              onChange={(e) => setAutoRefresh((e.target as HTMLInputElement).checked)}
               className="mr-2"
             />
             Auto Refresh
