@@ -27,6 +27,11 @@ import json
 
 # Import the new core platform
 from claude_platform_core import initialize_platform, get_platform_core
+from motor.motor_asyncio import AsyncIOMotorClient
+
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+client = AsyncIOMotorClient(mongo_url)
+db = client[os.environ.get('DB_NAME', 'test_database')]
 
 # Import Enhanced CMS Engine
 from cms_engine.coworking_cms import CoworkingCMSEngine
@@ -83,8 +88,17 @@ async def startup_event():
         async with connection_manager.get_session() as session:
             identity_kernel = PostgreSQLIdentityKernel(session, SECRET_KEY)
         
-        # Initialize platform core (if needed)
-        # platform_core = await initialize_platform(connection_manager)
+        # Initialize platform core
+        platform_core = await initialize_platform(db)
+        
+        # Initialize database optimizer
+        db_optimizer = await get_db_optimizer(db)
+        logger.info("✅ Database optimizer initialized")
+        
+        # Start performance monitoring
+        monitor = await get_performance_monitor()
+        await monitor.start_monitoring()
+        logger.info("✅ Performance monitoring started")
         
         logger.info("✅ PostgreSQL backend initialized successfully")
         
@@ -100,7 +114,14 @@ async def shutdown_event():
     try:
         if connection_manager:
             await connection_manager.close()
-        logger.info("✅ PostgreSQL connections closed")
+        
+        # Stop performance monitoring
+        monitor = await get_performance_monitor()
+        await monitor.stop_monitoring()
+        
+        client.close()
+        
+        logger.info("✅ All connections closed")
         
     except Exception as e:
         logger.error(f"❌ Error during shutdown: {e}")
@@ -1327,33 +1348,6 @@ logger = logging.getLogger(__name__)
 tenant_repo = None
 
 # Add platform initialization
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the Claude Platform on startup"""
-    global platform_core, tenant_repo
-    
-    # Initialize tenant repository
-    tenant_repo = TenantRepository(db)
-    await tenant_repo.initialize()
-    app.state.tenant_repo = tenant_repo
-    
-    # Add tenant middleware
-    app.add_middleware(TenantMiddleware, tenant_repo=tenant_repo)
-    
-    # Initialize platform core
-    platform_core = await initialize_platform(db)
-    print("🚀 Claude Platform Core initialized successfully!")
-    
-    # Include API routers
-    app.include_router(tenant_router)
-    app.include_router(lead_router)
-    app.include_router(financial_router)
-    app.include_router(communication_router)
-    app.include_router(health_router)
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
 # Performance Monitoring Routes
 @api_router.get("/performance/metrics")
 async def get_performance_metrics(
@@ -1479,34 +1473,3 @@ async def health_check():
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }
-
-# Initialize performance monitoring on startup
-@app.on_event("startup")
-async def startup_event():
-    """Initialize performance monitoring and optimizations"""
-    try:
-        # Initialize database optimizer
-        db_optimizer = await get_db_optimizer(db)
-        logger.info("✅ Database optimizer initialized")
-        
-        # Start performance monitoring
-        monitor = await get_performance_monitor()
-        await monitor.start_monitoring()
-        logger.info("✅ Performance monitoring started")
-        
-        # Initialize platform core
-        await initialize_platform(db)
-        logger.info("✅ Platform core initialized")
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize performance systems: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    try:
-        monitor = await get_performance_monitor()
-        await monitor.stop_monitoring()
-        logger.info("✅ Performance monitoring stopped")
-    except Exception as e:
-        logger.error(f"❌ Error during shutdown: {e}")

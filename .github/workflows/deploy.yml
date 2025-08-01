@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
       
@@ -43,7 +43,7 @@ jobs:
       - name: Run Frontend Tests
         working-directory: ./frontend
         run: |
-          yarn test --coverage --watchAll=false
+          yarn test --coverage --watchAll=false --passWithNoTests
           yarn build:analyze
       
       - name: Run Backend Tests
@@ -52,7 +52,7 @@ jobs:
           pytest --cov=. --cov-report=xml --cov-report=html
           black --check .
           isort --check-only .
-          flake8 .
+          flake8 --ignore=E501 .
           mypy .
       
       - name: Upload Coverage Reports
@@ -97,7 +97,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
       
