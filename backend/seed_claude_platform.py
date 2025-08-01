@@ -3,40 +3,54 @@
 Seed demo data for Claude Platform - Complete Space-as-a-Service platform
 """
 import asyncio
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
 import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+from passlib.context import CryptContext
+from sqlalchemy import delete, select
+
+from database.config.connection_pool import PostgreSQLConnectionManager
+from models.postgresql_models import (
+    Form,
+    Lead,
+    Page,
+    Template,
+    Tenant,
+    Tour,
+    TourSlot,
+    User,
+    UserPassword,
+)
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
 # Database connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+connection_manager = PostgreSQLConnectionManager()
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 async def seed_claude_platform():
-    print("🏢 Seeding Claude Platform - Space-as-a-Service Demo Data...")
-    
-    # Clear existing data
-    await db.tenants.delete_many({})
-    await db.users.delete_many({})
-    await db.user_passwords.delete_many({})
-    await db.pages.delete_many({})
-    await db.forms.delete_many({})
-    await db.leads.delete_many({})
-    await db.tour_slots.delete_many({})
-    await db.tours.delete_many({})
-    await db.templates.delete_many({})
-    
+    print("🏢 Seeding Claude Platform - Space-as-a-Service " "Demo Data...")
+
+    async with connection_manager.get_session() as session:
+        # Clear existing data
+        await session.execute(delete(Tour))
+        await session.execute(delete(TourSlot))
+        await session.execute(delete(Lead))
+        await session.execute(delete(Form))
+        await session.execute(delete(Page))
+        await session.execute(delete(Template))
+        await session.execute(delete(UserPassword))
+        await session.execute(delete(User))
+        await session.execute(delete(Tenant))
+        await session.commit()
+
     # Create industry templates
     templates = [
         {
@@ -47,29 +61,29 @@ async def seed_claude_platform():
             "layout_config": {
                 "primary_color": "#3B82F6",
                 "secondary_color": "#1E40AF",
-                "font_family": "Inter"
+                "font_family": "Inter",
             },
             "default_content": {
                 "hero_title": "Where Innovation Meets Collaboration",
-                "hero_subtitle": "Join our vibrant coworking community"
+                "hero_subtitle": "Join our vibrant coworking " "community",
             },
-            "is_active": True
+            "is_active": True,
         },
         {
             "id": str(uuid.uuid4()),
             "name": "Government Clean",
             "industry_module": "government",
-            "preview_image": "/images/templates/government-clean.jpg", 
+            "preview_image": "/images/templates/" "government-clean.jpg",
             "layout_config": {
                 "primary_color": "#059669",
                 "secondary_color": "#047857",
-                "font_family": "Inter"
+                "font_family": "Inter",
             },
             "default_content": {
                 "hero_title": "Public Facility Reservations",
-                "hero_subtitle": "Book community spaces for your events"
+                "hero_subtitle": "Book community spaces for your " "events",
             },
-            "is_active": True
+            "is_active": True,
         },
         {
             "id": str(uuid.uuid4()),
@@ -79,13 +93,13 @@ async def seed_claude_platform():
             "layout_config": {
                 "primary_color": "#DC2626",
                 "secondary_color": "#B91C1C",
-                "font_family": "Playfair Display"
+                "font_family": "Playfair Display",
             },
             "default_content": {
                 "hero_title": "Executive Meeting Venues",
-                "hero_subtitle": "Where business meets luxury"
+                "hero_subtitle": "Where business meets luxury",
             },
-            "is_active": True
+            "is_active": True,
         },
         {
             "id": str(uuid.uuid4()),
@@ -95,13 +109,14 @@ async def seed_claude_platform():
             "layout_config": {
                 "primary_color": "#7C3AED",
                 "secondary_color": "#6D28D9",
-                "font_family": "Source Serif Pro"
+                "font_family": "Source Serif Pro",
             },
             "default_content": {
                 "hero_title": "Campus Resource Center",
-                "hero_subtitle": "Book study spaces and facilities for academic success"
+                "hero_subtitle": "Book study spaces and facilities for "
+                "academic success",
             },
-            "is_active": True
+            "is_active": True,
         },
         {
             "id": str(uuid.uuid4()),
@@ -111,13 +126,13 @@ async def seed_claude_platform():
             "layout_config": {
                 "primary_color": "#EA580C",
                 "secondary_color": "#DC2626",
-                "font_family": "Montserrat"
+                "font_family": "Montserrat",
             },
             "default_content": {
                 "hero_title": "Unleash Your Creative Potential",
-                "hero_subtitle": "Professional studios and creative community"
+                "hero_subtitle": "Professional studios and creative community",
             },
-            "is_active": True
+            "is_active": True,
         },
         {
             "id": str(uuid.uuid4()),
@@ -127,20 +142,21 @@ async def seed_claude_platform():
             "layout_config": {
                 "primary_color": "#0891B2",
                 "secondary_color": "#0E7490",
-                "font_family": "Inter"
+                "font_family": "Inter",
             },
             "default_content": {
                 "hero_title": "Your Home, Enhanced by Community",
-                "hero_subtitle": "Modern living with premium amenities"
+                "hero_subtitle": "Modern living with premium amenities",
             },
-            "is_active": True
-        }
+            "is_active": True,
+        },
     ]
-    
+
     for template in templates:
-        await db.templates.insert_one(template)
+        session.add(template)
+        await session.commit()
         print(f"✅ Created template: {template['name']}")
-    
+
     # Create demo tenants for different industries
     tenants_data = [
         {
@@ -153,7 +169,7 @@ async def seed_claude_platform():
                 "primary_color": "#3B82F6",
                 "secondary_color": "#1E40AF",
                 "logo_url": "/images/logos/downtown-hub.svg",
-                "tagline": "Where innovation meets collaboration"
+                "tagline": "Where innovation meets collaboration",
             },
             "feature_toggles": {
                 "website_builder": True,
@@ -161,8 +177,8 @@ async def seed_claude_platform():
                 "community_platform": True,
                 "events_system": True,
                 "member_directory": True,
-                "booking_system": True
-            }
+                "booking_system": True,
+            },
         },
         {
             "name": "City Hall Facilities",
@@ -172,9 +188,9 @@ async def seed_claude_platform():
             "admin_password": "password123",
             "branding": {
                 "primary_color": "#059669",
-                "secondary_color": "#047857", 
+                "secondary_color": "#047857",
                 "logo_url": "/images/logos/city-hall.svg",
-                "tagline": "Serving our community"
+                "tagline": "Serving our community",
             },
             "feature_toggles": {
                 "website_builder": True,
@@ -182,28 +198,28 @@ async def seed_claude_platform():
                 "approval_workflows": True,
                 "public_transparency": True,
                 "accessibility_features": True,
-                "booking_system": True
-            }
+                "booking_system": True,
+            },
         },
         {
             "name": "Grand Hotel Business Center",
             "subdomain": "grand-hotel",
             "industry_module": "hotel",
-            "admin_email": "events@grandhotel.com", 
+            "admin_email": "events@grandhotel.com",
             "admin_password": "password123",
             "branding": {
                 "primary_color": "#7C2D12",
                 "secondary_color": "#92400E",
                 "logo_url": "/images/logos/grand-hotel.svg",
-                "tagline": "Luxury meets productivity"
+                "tagline": "Luxury meets productivity",
             },
             "feature_toggles": {
                 "website_builder": True,
                 "lead_management": True,
                 "complex_resource_booking": True,
                 "guest_management": True,
-                "booking_system": True
-            }
+                "booking_system": True,
+            },
         },
         {
             "name": "State University Campus",
@@ -215,7 +231,7 @@ async def seed_claude_platform():
                 "primary_color": "#7C3AED",
                 "secondary_color": "#6D28D9",
                 "logo_url": "/images/logos/state-university.svg",
-                "tagline": "Academic excellence in every space"
+                "tagline": "Academic excellence in every space",
             },
             "feature_toggles": {
                 "website_builder": True,
@@ -223,8 +239,8 @@ async def seed_claude_platform():
                 "academic_calendar": True,
                 "sso_integration": True,
                 "research_facilities": True,
-                "booking_system": True
-            }
+                "booking_system": True,
+            },
         },
         {
             "name": "Artisan Creative Studios",
@@ -236,7 +252,7 @@ async def seed_claude_platform():
                 "primary_color": "#EA580C",
                 "secondary_color": "#DC2626",
                 "logo_url": "/images/logos/artisan-studios.svg",
-                "tagline": "Where creativity comes to life"
+                "tagline": "Where creativity comes to life",
             },
             "feature_toggles": {
                 "website_builder": True,
@@ -244,8 +260,8 @@ async def seed_claude_platform():
                 "portfolio_showcase": True,
                 "equipment_rental": True,
                 "creative_workshops": True,
-                "booking_system": True
-            }
+                "booking_system": True,
+            },
         },
         {
             "name": "Metropolitan Lofts",
@@ -257,7 +273,7 @@ async def seed_claude_platform():
                 "primary_color": "#0891B2",
                 "secondary_color": "#0E7490",
                 "logo_url": "/images/logos/metro-lofts.svg",
-                "tagline": "Modern living, community focused"
+                "tagline": "Modern living, community focused",
             },
             "feature_toggles": {
                 "website_builder": True,
@@ -265,11 +281,11 @@ async def seed_claude_platform():
                 "resident_portal": True,
                 "maintenance_requests": True,
                 "community_events": True,
-                "booking_system": True
-            }
-        }
+                "booking_system": True,
+            },
+        },
     ]
-    
+
     created_tenants = []
     for tenant_data in tenants_data:
         # Create tenant
@@ -285,13 +301,15 @@ async def seed_claude_platform():
             "settings": {
                 "timezone": "America/New_York",
                 "language": "en",
-                "currency": "USD"
+                "currency": "USD",
             },
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         }
-        await db.tenants.insert_one(tenant)
+        tenant_obj = Tenant(**tenant)
+        session.add(tenant_obj)
+        await session.commit()
         created_tenants.append(tenant)
-        
+
         # Create admin user
         hashed_password = pwd_context.hash(tenant_data["admin_password"])
         admin_user = {
@@ -304,32 +322,35 @@ async def seed_claude_platform():
             "is_active": True,
             "profile": {
                 "bio": f"Managing {tenant['name']} operations",
-                "job_title": "Facilities Manager"
+                "job_title": "Facilities Manager",
             },
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         }
-        await db.users.insert_one(admin_user)
-        await db.user_passwords.insert_one({
-            "user_id": admin_user["id"],
-            "hashed_password": hashed_password
-        })
-        
+        admin_user_obj = User(**admin_user)
+        session.add(admin_user_obj)
+
+        user_password = UserPassword(
+            user_id=admin_user["id"], hashed_password=hashed_password
+        )
+        session.add(user_password)
+        await session.commit()
+
         # Create additional staff users
         staff_users = [
             {
                 "email": f"manager@{tenant['subdomain']}.com",
                 "first_name": "Property",
                 "last_name": "Manager",
-                "role": "property_manager"
+                "role": "property_manager",
             },
             {
                 "email": f"front-desk@{tenant['subdomain']}.com",
                 "first_name": "Front",
                 "last_name": "Desk",
-                "role": "front_desk"
-            }
+                "role": "front_desk",
+            },
         ]
-        
+
         for staff_data in staff_users:
             staff_user = {
                 "id": str(uuid.uuid4()),
@@ -340,21 +361,32 @@ async def seed_claude_platform():
                 "role": staff_data["role"],
                 "is_active": True,
                 "profile": {},
-                "created_at": datetime.utcnow()
+                "created_at": datetime.utcnow(),
             }
-            await db.users.insert_one(staff_user)
-            await db.user_passwords.insert_one({
-                "user_id": staff_user["id"],
-                "hashed_password": pwd_context.hash("password123")
-            })
-        
-        print(f"✅ Created tenant: {tenant['name']} with {len(staff_users) + 1} users")
-    
+            staff_user_obj = User(**staff_user)
+            session.add(staff_user_obj)
+
+            user_password = UserPassword(
+                user_id=staff_user["id"],
+                hashed_password=pwd_context.hash("password123"),
+            )
+            session.add(user_password)
+            await session.commit()
+
+        print(
+            f"✅ Created tenant: {tenant['name']} with " f"{len(staff_users) + 1} users"
+        )
+
     # Create pages for each tenant
     for tenant in created_tenants:
         # Get appropriate template
-        template = await db.templates.find_one({"industry_module": tenant["industry_module"]})
-        
+        result = await session.execute(
+            select(Template).where(
+                Template.industry_module == tenant["industry_module"]
+            )
+        )
+        template = result.scalar_one_or_none()
+
         # Create homepage
         if tenant["industry_module"] == "coworking":
             content_blocks = [
@@ -363,49 +395,63 @@ async def seed_claude_platform():
                     "type": "hero_banner",
                     "config": {
                         "title": "Welcome to Downtown Coworking Hub",
-                        "subtitle": "Where innovation meets collaboration in the heart of the city",
+                        "subtitle": "Where innovation meets collaboration "
+                        "in the heart of the city",
                         "background_image": "/images/coworking-hero.jpg",
                         "cta_text": "Join Our Community",
-                        "cta_link": "/membership"
-                    }
+                        "cta_link": "/membership",
+                    },
                 },
                 {
                     "id": str(uuid.uuid4()),
                     "type": "pricing_cards",
                     "config": {
                         "title": "Membership Plans",
-                        "subtitle": "Choose the perfect plan for your work style",
+                        "subtitle": ("Choose the perfect plan for your work style"),
                         "plans": [
                             {
                                 "name": "Hot Desk",
                                 "price": "$99/month",
-                                "features": ["Flexible seating", "WiFi & Coffee", "Community events"],
-                                "popular": False
+                                "features": [
+                                    "Flexible seating",
+                                    "WiFi & Coffee",
+                                    "Community events",
+                                ],
+                                "popular": False,
                             },
                             {
                                 "name": "Dedicated Desk",
-                                "price": "$199/month", 
-                                "features": ["Your own desk", "Storage locker", "24/7 access"],
-                                "popular": True
+                                "price": "$199/month",
+                                "features": [
+                                    "Your own desk",
+                                    "Storage locker",
+                                    "24/7 access",
+                                ],
+                                "popular": True,
                             },
                             {
                                 "name": "Private Office",
                                 "price": "$399/month",
-                                "features": ["Private space", "Phone booth access", "Meeting room credits"],
-                                "popular": False
-                            }
-                        ]
-                    }
+                                "features": [
+                                    "Private space",
+                                    "Phone booth access",
+                                    "Meeting room credits",
+                                ],
+                                "popular": False,
+                            },
+                        ],
+                    },
                 },
                 {
                     "id": str(uuid.uuid4()),
                     "type": "lead_form",
                     "config": {
                         "title": "Get Started Today",
-                        "subtitle": "Join hundreds of entrepreneurs, freelancers, and teams",
-                        "form_id": None  # Will be linked to actual form
-                    }
-                }
+                        "subtitle": "Join hundreds of entrepreneurs, "
+                        "freelancers, and teams",
+                        "form_id": None,  # Will be linked to actual form
+                    },
+                },
             ]
         elif tenant["industry_module"] == "government":
             content_blocks = [
@@ -414,27 +460,33 @@ async def seed_claude_platform():
                     "type": "hero_banner",
                     "config": {
                         "title": "City Hall Public Facilities",
-                        "subtitle": "Reserve community spaces for meetings, events, and public gatherings",
+                        "subtitle": "Reserve community spaces for meetings, "
+                        "events, and public gatherings",
                         "background_image": "/images/government-hero.jpg",
                         "cta_text": "View Available Spaces",
-                        "cta_link": "/spaces"
-                    }
+                        "cta_link": "/spaces",
+                    },
                 },
                 {
                     "id": str(uuid.uuid4()),
                     "type": "text_block",
                     "config": {
-                        "content": "<h2>Community Meeting Spaces</h2><p>Our public facilities are available to community organizations, non-profits, and residents for meetings and events. All bookings are subject to approval and must comply with city guidelines.</p>"
-                    }
+                        "content": "<h2>Community Meeting Spaces</h2>"
+                        "<p>Our public facilities are available to community "
+                        "organizations, non-profits, and residents for "
+                        "meetings and events. All bookings are subject to "
+                        "approval and must comply with city guidelines.</p>"
+                    },
                 },
                 {
                     "id": str(uuid.uuid4()),
                     "type": "lead_form",
                     "config": {
                         "title": "Request Space Reservation",
-                        "subtitle": "Submit your request and we'll process it within 48 hours"
-                    }
-                }
+                        "subtitle": "Submit your request and we'll process "
+                        "it within 48 hours",
+                    },
+                },
             ]
         else:  # hotel
             content_blocks = [
@@ -442,22 +494,27 @@ async def seed_claude_platform():
                     "id": str(uuid.uuid4()),
                     "type": "hero_banner",
                     "config": {
-                        "title": "Grand Hotel Executive Spaces", 
-                        "subtitle": "Premium meeting rooms and event venues for discerning professionals",
+                        "title": "Grand Hotel Executive Spaces",
+                        "subtitle": "Premium meeting rooms and event venues "
+                        "for discerning professionals",
                         "background_image": "/images/hotel-hero.jpg",
                         "cta_text": "Book Your Event",
-                        "cta_link": "/booking"
-                    }
+                        "cta_link": "/booking",
+                    },
                 },
                 {
                     "id": str(uuid.uuid4()),
                     "type": "text_block",
                     "config": {
-                        "content": "<h2>Professional Meeting Venues</h2><p>Experience luxury and sophistication in our state-of-the-art meeting rooms and event spaces. Perfect for corporate meetings, training sessions, and special events.</p>"
-                    }
-                }
+                        "content": "<h2>Professional Meeting Venues</h2>"
+                        "<p>Experience luxury and sophistication in our "
+                        "state-of-the-art meeting rooms and event spaces. "
+                        "Perfect for corporate meetings, training sessions, "
+                        "and special events.</p>"
+                    },
+                },
             ]
-        
+
         homepage = {
             "id": str(uuid.uuid4()),
             "tenant_id": tenant["id"],
@@ -470,10 +527,12 @@ async def seed_claude_platform():
             "template_id": template["id"] if template else None,
             "is_homepage": True,
             "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "updated_at": datetime.utcnow(),
         }
-        await db.pages.insert_one(homepage)
-        
+        homepage_obj = Page(**homepage)
+        session.add(homepage_obj)
+        await session.commit()
+
         # Create additional pages
         additional_pages = [
             {
@@ -482,12 +541,14 @@ async def seed_claude_platform():
                 "content_blocks": [
                     {
                         "id": str(uuid.uuid4()),
-                        "type": "text_block", 
+                        "type": "text_block",
                         "config": {
-                            "content": f"<h1>About {tenant['name']}</h1><p>We are dedicated to providing exceptional space solutions for our community.</p>"
-                        }
+                            "content": f"<h1>About {tenant['name']}</h1>"
+                            f"<p>We are dedicated to providing exceptional "
+                            f"space solutions for our community.</p>"
+                        },
                     }
-                ]
+                ],
             },
             {
                 "title": "Contact",
@@ -498,13 +559,13 @@ async def seed_claude_platform():
                         "type": "lead_form",
                         "config": {
                             "title": "Get in Touch",
-                            "subtitle": "We'd love to hear from you"
-                        }
+                            "subtitle": "We'd love to hear from you",
+                        },
                     }
-                ]
-            }
+                ],
+            },
         ]
-        
+
         for page_data in additional_pages:
             page = {
                 "id": str(uuid.uuid4()),
@@ -513,179 +574,223 @@ async def seed_claude_platform():
                 "slug": page_data["slug"],
                 "content_blocks": page_data["content_blocks"],
                 "meta_title": f"{page_data['title']} - {tenant['name']}",
-                "meta_description": f"{page_data['title']} page for {tenant['name']}",
+                "meta_description": f"{page_data['title']} page for "
+                f"{tenant['name']}",
                 "status": "published",
                 "template_id": template["id"] if template else None,
                 "is_homepage": False,
                 "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
+                "updated_at": datetime.utcnow(),
             }
-            await db.pages.insert_one(page)
-        
-        print(f"✅ Created {len(additional_pages) + 1} pages for {tenant['name']}")
-    
-    # Create forms for each tenant  
+            page_obj = Page(**page)
+            session.add(page_obj)
+            await session.commit()
+
+        print(f"✅ Created {len(additional_pages) + 1} pages for " f"{tenant['name']}")
+
+    # Create forms for each tenant
     for tenant in created_tenants:
         if tenant["industry_module"] == "coworking":
             forms_data = [
                 {
                     "name": "membership_inquiry",
                     "title": "Membership Inquiry",
-                    "description": "Interested in joining our coworking community? Tell us about your needs.",
+                    "description": (
+                        "Interested in joining our coworking community? "
+                        "Tell us about your needs."
+                    ),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
                             "label": "First Name",
                             "type": "text",
                             "is_required": True,
-                            "placeholder": "Enter your first name"
+                            "placeholder": "Enter your first name",
                         },
                         {
                             "id": str(uuid.uuid4()),
-                            "label": "Last Name", 
+                            "label": "Last Name",
                             "type": "text",
                             "is_required": True,
-                            "placeholder": "Enter your last name"
+                            "placeholder": "Enter your last name",
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Email",
                             "type": "email",
                             "is_required": True,
-                            "placeholder": "your@email.com"
+                            "placeholder": "your@email.com",
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Phone",
-                            "type": "phone", 
+                            "type": "phone",
                             "is_required": False,
-                            "placeholder": "(555) 123-4567"
+                            "placeholder": "(555) 123-4567",
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Company",
                             "type": "text",
                             "is_required": False,
-                            "placeholder": "Your company name"
+                            "placeholder": "Your company name",
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Membership Interest",
                             "type": "select",
                             "is_required": True,
-                            "options": ["Hot Desk", "Dedicated Desk", "Private Office", "Meeting Rooms Only"]
+                            "options": [
+                                "Hot Desk",
+                                "Dedicated Desk",
+                                "Private Office",
+                                "Meeting Rooms Only",
+                            ],
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "How did you hear about us?",
                             "type": "select",
                             "is_required": False,
-                            "options": ["Google Search", "Social Media", "Referral", "Walking by", "Other"]
+                            "options": [
+                                "Google Search",
+                                "Social Media",
+                                "Referral",
+                                "Walking by",
+                                "Other",
+                            ],
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Additional Notes",
                             "type": "textarea",
                             "is_required": False,
-                            "placeholder": "Tell us about your needs and preferences..."
-                        }
+                            "placeholder": (
+                                "Tell us about your needs and preferences..."
+                            ),
+                        },
                     ],
-                    "success_message": "Thank you for your interest! We'll be in touch within 24 hours to schedule a tour.",
-                    "email_notifications": ["admin@downtownhub.com"]
+                    "success_message": (
+                        "Thank you for your interest! We'll be in touch "
+                        "within 24 hours to schedule a tour."
+                    ),
+                    "email_notifications": ["admin@downtownhub.com"],
                 },
                 {
                     "name": "tour_request",
                     "title": "Schedule a Tour",
-                    "description": "See our space in person and meet our community.",
+                    "description": ("See our space in person and meet our community."),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Name",
                             "type": "text",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Email",
-                            "type": "email", 
-                            "is_required": True
+                            "type": "email",
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Preferred Date",
                             "type": "date",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Preferred Time",
                             "type": "select",
                             "is_required": True,
-                            "options": ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM", "3:00 PM", "4:00 PM"]
-                        }
+                            "options": [
+                                "9:00 AM",
+                                "10:00 AM",
+                                "11:00 AM",
+                                "2:00 PM",
+                                "3:00 PM",
+                                "4:00 PM",
+                            ],
+                        },
                     ],
-                    "success_message": "Tour requested! We'll confirm your appointment shortly."
-                }
+                    "success_message": (
+                        "Tour requested! We'll confirm your appointment " "shortly."
+                    ),
+                },
             ]
         elif tenant["industry_module"] == "government":
             forms_data = [
                 {
                     "name": "facility_request",
-                    "title": "Facility Reservation Request", 
-                    "description": "Request to reserve public meeting spaces and facilities.",
+                    "title": "Facility Reservation Request",
+                    "description": (
+                        "Request to reserve public meeting spaces and " "facilities."
+                    ),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Organization Name",
                             "type": "text",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Contact Person",
                             "type": "text",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Email",
                             "type": "email",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
-                            "label": "Phone Number", 
+                            "label": "Phone Number",
                             "type": "phone",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Event Type",
                             "type": "select",
                             "is_required": True,
-                            "options": ["Community Meeting", "Non-profit Event", "Educational Workshop", "Public Hearing", "Other"]
+                            "options": [
+                                "Community Meeting",
+                                "Non-profit Event",
+                                "Educational Workshop",
+                                "Public Hearing",
+                                "Other",
+                            ],
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Requested Date",
-                            "type": "date", 
-                            "is_required": True
+                            "type": "date",
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Expected Attendance",
                             "type": "number",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Event Description",
                             "type": "textarea",
                             "is_required": True,
-                            "placeholder": "Please provide details about your event..."
-                        }
+                            "placeholder": (
+                                "Please provide details about your event..."
+                            ),
+                        },
                     ],
-                    "success_message": "Your reservation request has been submitted. We will review and respond within 48 hours."
+                    "success_message": (
+                        "Your reservation request has been submitted. "
+                        "We will review and respond within 48 hours."
+                    ),
                 }
             ]
         else:  # hotel
@@ -693,169 +798,333 @@ async def seed_claude_platform():
                 {
                     "name": "event_inquiry",
                     "title": "Event Space Inquiry",
-                    "description": "Planning a corporate event or meeting? Let us help you create the perfect experience.",
+                    "description": (
+                        "Planning a corporate event or meeting? "
+                        "Let us help you create the perfect experience."
+                    ),
                     "fields": [
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Company Name",
                             "type": "text",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Contact Name",
                             "type": "text",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Email",
                             "type": "email",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Phone",
                             "type": "phone",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Event Type",
                             "type": "select",
                             "is_required": True,
-                            "options": ["Board Meeting", "Training Session", "Conference", "Product Launch", "Corporate Retreat"]
+                            "options": [
+                                "Board Meeting",
+                                "Training Session",
+                                "Conference",
+                                "Product Launch",
+                                "Corporate Retreat",
+                            ],
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Event Date",
                             "type": "date",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Number of Attendees",
                             "type": "number",
-                            "is_required": True
+                            "is_required": True,
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Catering Required",
                             "type": "select",
                             "is_required": False,
-                            "options": ["No", "Continental Breakfast", "Lunch", "Full Service", "Custom"]
+                            "options": [
+                                "No",
+                                "Continental Breakfast",
+                                "Lunch",
+                                "Full Service",
+                                "Custom",
+                            ],
                         },
                         {
                             "id": str(uuid.uuid4()),
                             "label": "Special Requirements",
                             "type": "textarea",
                             "is_required": False,
-                            "placeholder": "Any special setup, equipment, or service requirements..."
-                        }
+                            "placeholder": (
+                                "Any special setup, equipment, or service "
+                                "requirements..."
+                            ),
+                        },
                     ],
-                    "success_message": "Thank you for your inquiry! Our events team will contact you within 4 hours to discuss your requirements."
+                    "success_message": (
+                        "Thank you for your inquiry! Our events team will "
+                        "contact you within 4 hours to discuss your "
+                        "requirements."
+                    ),
                 }
             ]
-        
+
         for form_data in forms_data:
             form = {
                 "id": str(uuid.uuid4()),
                 "tenant_id": tenant["id"],
                 **form_data,
                 "is_active": True,
-                "created_at": datetime.utcnow()
+                "created_at": datetime.utcnow(),
             }
-            await db.forms.insert_one(form)
-        
+            form_obj = Form(**form)
+            session.add(form_obj)
+            await session.commit()
+
         print(f"✅ Created {len(forms_data)} forms for {tenant['name']}")
-    
+
     # Create sample leads for each tenant
     for tenant in created_tenants:
         leads_count = 15 if tenant["industry_module"] == "coworking" else 8
-        
+
         for i in range(leads_count):
             days_ago = i * 2
             created_date = datetime.utcnow() - timedelta(days=days_ago)
-            
+
             if tenant["industry_module"] == "coworking":
-                first_names = ["Alex", "Jordan", "Casey", "Morgan", "Taylor", "Sam", "Riley", "Avery"]
-                last_names = ["Johnson", "Smith", "Williams", "Brown", "Davis", "Miller", "Wilson", "Moore"]
-                companies = ["TechStart Inc", "Design Studio", "Consulting Group", "Marketing Agency", None, "Law Firm", "Architecture Co", None]
-                sources = ["website_form", "google_search", "referral", "social_media", "walk_in"]
+                first_names = [
+                    "Alex",
+                    "Jordan",
+                    "Casey",
+                    "Morgan",
+                    "Taylor",
+                    "Sam",
+                    "Riley",
+                    "Avery",
+                ]
+                last_names = [
+                    "Johnson",
+                    "Smith",
+                    "Williams",
+                    "Brown",
+                    "Davis",
+                    "Miller",
+                    "Wilson",
+                    "Moore",
+                ]
+                companies = [
+                    "TechStart Inc",
+                    "Design Studio",
+                    "Consulting Group",
+                    "Marketing Agency",
+                    None,
+                    "Law Firm",
+                    "Architecture Co",
+                    None,
+                ]
+                sources = [
+                    "website_form",
+                    "google_search",
+                    "referral",
+                    "social_media",
+                    "walk_in",
+                ]
             elif tenant["industry_module"] == "government":
-                first_names = ["Maria", "John", "Sarah", "David", "Lisa", "Robert", "Jennifer", "Michael"]
-                last_names = ["Garcia", "Martinez", "Rodriguez", "Lopez", "Gonzalez", "Perez", "Sanchez", "Ramirez"]
-                companies = ["Community Center", "Non-profit Org", "School District", "Residents Assoc", "Youth Group", "Senior Center", "Cultural Org", "Volunteer Group"]
-                sources = ["city_website", "community_board", "referral", "public_notice"]
+                first_names = [
+                    "Maria",
+                    "John",
+                    "Sarah",
+                    "David",
+                    "Lisa",
+                    "Robert",
+                    "Jennifer",
+                    "Michael",
+                ]
+                last_names = [
+                    "Garcia",
+                    "Martinez",
+                    "Rodriguez",
+                    "Lopez",
+                    "Gonzalez",
+                    "Perez",
+                    "Sanchez",
+                    "Ramirez",
+                ]
+                companies = [
+                    "Community Center",
+                    "Non-profit Org",
+                    "School District",
+                    "Residents Assoc",
+                    "Youth Group",
+                    "Senior Center",
+                    "Cultural Org",
+                    "Volunteer Group",
+                ]
+                sources = [
+                    "city_website",
+                    "community_board",
+                    "referral",
+                    "public_notice",
+                ]
             else:  # hotel
-                first_names = ["Executive", "Senior", "Director", "Manager", "Chief", "Vice", "Head", "Lead"]
-                last_names = ["Thompson", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin", "Clark"]
-                companies = ["Fortune Corp", "Global Industries", "Enterprise Solutions", "Business Group", "Corporate Partners", "Executive Associates", "Professional Services", "Strategic Consulting"]
-                sources = ["corporate_website", "sales_referral", "event_planner", "repeat_client"]
-            
+                first_names = [
+                    "Executive",
+                    "Senior",
+                    "Director",
+                    "Manager",
+                    "Chief",
+                    "Vice",
+                    "Head",
+                    "Lead",
+                ]
+                last_names = [
+                    "Thompson",
+                    "Anderson",
+                    "Thomas",
+                    "Jackson",
+                    "White",
+                    "Harris",
+                    "Martin",
+                    "Clark",
+                ]
+                companies = [
+                    "Fortune Corp",
+                    "Global Industries",
+                    "Enterprise Solutions",
+                    "Business Group",
+                    "Corporate Partners",
+                    "Executive Associates",
+                    "Professional Services",
+                    "Strategic Consulting",
+                ]
+                sources = [
+                    "corporate_website",
+                    "sales_referral",
+                    "event_planner",
+                    "repeat_client",
+                ]
+
             # Determine status based on age
             if days_ago == 0:
                 status = "new_inquiry"
             elif days_ago <= 3:
-                status = "tour_scheduled" if tenant["industry_module"] == "coworking" else "new_inquiry"
+                status = (
+                    "tour_scheduled"
+                    if tenant["industry_module"] == "coworking"
+                    else "new_inquiry"
+                )
             elif days_ago <= 7:
-                status = "tour_completed" if tenant["industry_module"] == "coworking" else "tour_scheduled"
+                status = (
+                    "tour_completed"
+                    if tenant["industry_module"] == "coworking"
+                    else "tour_scheduled"
+                )
             elif days_ago <= 14:
                 status = "converted" if i % 3 == 0 else "tour_completed"
             else:
                 status = "converted" if i % 4 == 0 else "closed"
-            
+
             lead = {
                 "id": str(uuid.uuid4()),
                 "tenant_id": tenant["id"],
                 "first_name": first_names[i % len(first_names)],
                 "last_name": last_names[i % len(last_names)],
-                "email": f"{first_names[i % len(first_names)].lower()}.{last_names[i % len(last_names)].lower()}@email.com",
+                "email": (
+                    f"{first_names[i % len(first_names)].lower()}."
+                    f"{last_names[i % len(last_names)].lower()}@email.com"
+                ),
                 "phone": f"+1-555-{(i*123) % 1000:03d}-{(i*456) % 10000:04d}",
                 "company": companies[i % len(companies)],
                 "status": status,
                 "source": sources[i % len(sources)],
-                "notes": f"Interested in our services. Initial contact made {days_ago} days ago.",
+                "notes": (
+                    f"Interested in our services. Initial contact made "
+                    f"{days_ago} days ago."
+                ),
                 "custom_fields": {},
                 "assigned_to": None,
-                "tour_scheduled_at": created_date + timedelta(days=2) if status in ["tour_scheduled", "tour_completed", "converted"] else None,
-                "tour_completed_at": created_date + timedelta(days=3) if status in ["tour_completed", "converted"] else None,
-                "converted_at": created_date + timedelta(days=5) if status == "converted" else None,
+                "tour_scheduled_at": (
+                    created_date + timedelta(days=2)
+                    if status in ["tour_scheduled", "tour_completed", "converted"]
+                    else None
+                ),
+                "tour_completed_at": (
+                    created_date + timedelta(days=3)
+                    if status in ["tour_completed", "converted"]
+                    else None
+                ),
+                "converted_at": (
+                    created_date + timedelta(days=5) if status == "converted" else None
+                ),
                 "created_at": created_date,
-                "updated_at": created_date
+                "updated_at": created_date,
             }
-            await db.leads.insert_one(lead)
-        
+            lead_obj = Lead(**lead)
+            session.add(lead_obj)
+            await session.commit()
+
         print(f"✅ Created {leads_count} sample leads for {tenant['name']}")
-    
+
     print("\n🎉 Claude Platform demo data seeded successfully!")
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("DEMO TENANTS CREATED:")
-    print("="*60)
-    
+    print("=" * 60)
+
     for tenant in created_tenants:
         print(f"\n🏢 {tenant['name']} ({tenant['industry_module'].upper()})")
-        print(f"   URL: https://your-domain.com (subdomain: {tenant['subdomain']})")
-        print(f"   Login: admin user credentials above")
-        print(f"   Features: {', '.join([k for k, v in tenant['feature_toggles'].items() if v])}")
-    
-    print(f"\n📊 PLATFORM STATISTICS:")
-    print(f"   • {len(created_tenants)} tenants across {len(set(t['industry_module'] for t in created_tenants))} industries")
-    print(f"   • {await db.users.count_documents({})} total users")
-    print(f"   • {await db.pages.count_documents({})} website pages")
-    print(f"   • {await db.forms.count_documents({})} lead capture forms")
-    print(f"   • {await db.leads.count_documents({})} leads generated")
-    print(f"   • {len(templates)} industry-specific templates")
-    
-    print(f"\n🔑 LOGIN CREDENTIALS:")
-    print(f"   All admin accounts: password123")
-    print(f"   Staff accounts: password123")
-    
-    print(f"\n🚀 Your multi-tenant Space-as-a-Service platform is ready!")
+        print(f"   URL: https://your-domain.com " f"(subdomain: {tenant['subdomain']})")
+        print("   Login: admin user credentials above")
+        print(
+            f"   Features: "
+            f"{', '.join([k for k, v in tenant['feature_toggles'].items()
+                          if v])}"
+        )
+
+        print("\n📊 PLATFORM STATISTICS:")
+        print(
+            f"   • {len(created_tenants)} tenants across "
+            f"{len(set(t['industry_module'] for t in created_tenants))} "
+            f"industries"
+        )
+
+        from sqlalchemy import func
+
+        user_count = await session.execute(select(func.count(User.id)))
+        page_count = await session.execute(select(func.count(Page.id)))
+        form_count = await session.execute(select(func.count(Form.id)))
+        lead_count = await session.execute(select(func.count(Lead.id)))
+
+        print(f"   • {user_count.scalar()} total users")
+        print(f"   • {page_count.scalar()} website pages")
+        print(f"   • {form_count.scalar()} lead capture forms")
+        print(f"   • {lead_count.scalar()} leads generated")
+        print(f"   • {len(templates)} industry-specific templates")
+
+    print("\n🔑 LOGIN CREDENTIALS:")
+    print("   All admin accounts: password123")
+    print("   Staff accounts: password123")
+
+    print("\n🚀 Your multi-tenant Space-as-a-Service platform is ready!")
+
 
 async def main():
     await seed_claude_platform()
-    client.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

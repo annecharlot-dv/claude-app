@@ -2,12 +2,15 @@
 Lead Management Kernel
 Handles lead capture, processing, scoring, and tour scheduling
 """
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
-from kernels.base_kernel import BaseKernel
-from pydantic import BaseModel, Field, EmailStr
-from enum import Enum
+
 import uuid
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, EmailStr, Field
+
+from kernels.base_kernel import BaseKernel
 
 
 class LeadStatus(str, Enum):
@@ -60,16 +63,16 @@ class LeadModel(BaseModel):
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
     assigned_to: Optional[str] = None  # User ID
     tags: List[str] = Field(default_factory=list)
-    
+
     # Tour information
     tour_scheduled_at: Optional[datetime] = None
     tour_completed_at: Optional[datetime] = None
     tour_notes: Optional[str] = None
-    
+
     # Conversion tracking
     converted_at: Optional[datetime] = None
     conversion_value: Optional[float] = None
-    
+
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -118,55 +121,47 @@ class TourSlotModel(BaseModel):
 
 class LeadKernel(BaseKernel):
     """Universal lead management and tour scheduling"""
-    
-    def __init__(self, db):
-        super().__init__(db)
-        self.leads_collection = db.leads
-        self.forms_collection = db.forms
-        self.tour_slots_collection = db.tour_slots
-        self.lead_activities_collection = db.lead_activities
-    
+
+    def __init__(self, connection_manager):
+        super().__init__(connection_manager)
+        self.connection_manager = connection_manager
+
     async def _initialize_kernel(self):
-        """Initialize lead kernel with indexes"""
-        # Lead indexes
-        await self.leads_collection.create_index([("tenant_id", 1), ("email", 1)], unique=True)
-        await self.leads_collection.create_index([("tenant_id", 1), ("status", 1)])
-        await self.leads_collection.create_index([("tenant_id", 1), ("assigned_to", 1)])
-        await self.leads_collection.create_index([("tenant_id", 1), ("created_at", -1)])
-        await self.leads_collection.create_index([("tenant_id", 1), ("score", -1)])
-        
-        # Form indexes
-        await self.forms_collection.create_index([("tenant_id", 1), ("name", 1)], unique=True)
-        await self.forms_collection.create_index([("tenant_id", 1), ("is_active", 1)])
-        
-        # Tour slot indexes
-        await self.tour_slots_collection.create_index([("tenant_id", 1), ("date", 1)])
-        await self.tour_slots_collection.create_index([("tenant_id", 1), ("staff_user_id", 1)])
-        await self.tour_slots_collection.create_index([("tenant_id", 1), ("is_available", 1)])
-    
+        """Initialize lead kernel with PostgreSQL indexes"""
+        pass
+
     # Lead Management
     async def create_lead(self, tenant_id: str, lead_data: Dict[str, Any]) -> LeadModel:
         """Create a new lead"""
         lead = LeadModel(tenant_id=tenant_id, **lead_data)
-        
+
         # Calculate initial lead score
         lead.score = await self._calculate_lead_score(lead)
-        
-        # Insert lead
-        await self.leads_collection.insert_one(lead.dict())
-        
+
+        # Insert lead using PostgreSQL
+        from models.postgresql_models import Lead
+
+        async with self.connection_manager.get_session() as session:
+            lead_obj = Lead(**lead.dict())
+            session.add(lead_obj)
+            await session.commit()
+
         # Log activity
         await self._log_lead_activity(
-            tenant_id, lead.id, "lead_created", 
-            {"source": lead.source, "score": lead.score}
+            tenant_id,
+            lead.id,
+            "lead_created",
+            {"source": lead.source, "score": lead.score},
         )
-        
+
         return lead
-    
-    async def update_lead(self, tenant_id: str, lead_id: str, updates: Dict[str, Any]) -> bool:
+
+    async def update_lead(
+        self, tenant_id: str, lead_id: str, updates: Dict[str, Any]
+    ) -> bool:
         """Update lead information"""
         updates["updated_at"] = datetime.utcnow()
-        
+
         # Recalculate score if relevant fields changed
         if any(field in updates for field in ["company", "phone", "custom_fields"]):
             lead = await self.get_lead_by_id(tenant_id, lead_id)
@@ -174,27 +169,37 @@ class LeadKernel(BaseKernel):
                 for key, value in updates.items():
                     setattr(lead, key, value)
                 updates["score"] = await self._calculate_lead_score(lead)
-        
-        result = await self.leads_collection.update_one(
-            {"tenant_id": tenant_id, "id": lead_id},
-            {"$set": updates}
-        )
-        
-        if result.modified_count > 0:
-            await self._log_lead_activity(
-                tenant_id, lead_id, "lead_updated", updates
+
+        from sqlalchemy import update
+
+        from models.postgresql_models import Lead
+
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                update(Lead)
+                .where(Lead.tenant_id == tenant_id, Lead.id == lead_id)
+                .values(**updates)
             )
-        
+            await session.commit()
+
+        if result.modified_count > 0:
+            await self._log_lead_activity(tenant_id, lead_id, "lead_updated", updates)
+
         return result.modified_count > 0
-    
+
     async def get_lead_by_id(self, tenant_id: str, lead_id: str) -> Optional[LeadModel]:
         """Get lead by ID"""
-        doc = await self.leads_collection.find_one({
-            "tenant_id": tenant_id,
-            "id": lead_id
-        })
-        return LeadModel(**doc) if doc else None
-    
+        from sqlalchemy import select
+
+        from models.postgresql_models import Lead
+
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Lead).where(Lead.tenant_id == tenant_id, Lead.id == lead_id)
+            )
+            lead = result.scalar_one_or_none()
+            return LeadModel(**lead.__dict__) if lead else None
+
     async def list_leads(
         self,
         tenant_id: str,
@@ -202,52 +207,69 @@ class LeadKernel(BaseKernel):
         assigned_to: Optional[str] = None,
         source: Optional[LeadSource] = None,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[LeadModel]:
         """List leads with filtering"""
-        query = {"tenant_id": tenant_id}
-        
-        if status:
-            query["status"] = status
-        if assigned_to:
-            query["assigned_to"] = assigned_to
-        if source:
-            query["source"] = source
-        
-        cursor = self.leads_collection.find(query).sort("created_at", -1).skip(offset).limit(limit)
-        docs = await cursor.to_list(length=limit)
-        
-        return [LeadModel(**doc) for doc in docs]
-    
+
+        from sqlalchemy import select
+
+        from models.postgresql_models import Lead
+
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [Lead.tenant_id == tenant_id]
+            if status:
+                query_conditions.append(Lead.status == status)
+            if assigned_to:
+                query_conditions.append(Lead.assigned_to == assigned_to)
+            if source:
+                query_conditions.append(Lead.source == source)
+
+            result = await session.execute(
+                select(Lead)
+                .where(*query_conditions)
+                .order_by(Lead.created_at.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            leads = result.scalars().all()
+            return [LeadModel(**lead.__dict__) for lead in leads]
+
     async def assign_lead(self, tenant_id: str, lead_id: str, user_id: str) -> bool:
         """Assign lead to a user"""
-        result = await self.leads_collection.update_one(
-            {"tenant_id": tenant_id, "id": lead_id},
-            {"$set": {"assigned_to": user_id, "updated_at": datetime.utcnow()}}
-        )
-        
+        from sqlalchemy import update
+
+        from models.postgresql_models import Lead
+
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                update(Lead)
+                .where(Lead.tenant_id == tenant_id, Lead.id == lead_id)
+                .values(assigned_to=user_id, updated_at=datetime.utcnow())
+            )
+            await session.commit()
+
         if result.modified_count > 0:
             await self._log_lead_activity(
                 tenant_id, lead_id, "lead_assigned", {"assigned_to": user_id}
             )
-        
+
         return result.modified_count > 0
-    
+
     # Lead Scoring
     async def _calculate_lead_score(self, lead: LeadModel) -> int:
         """Calculate lead score based on various factors"""
         score = 0
-        
+
         # Base score for having contact info
         if lead.email:
             score += 20
         if lead.phone:
             score += 15
-        
+
         # Company information adds value
         if lead.company:
             score += 25
-        
+
         # Source-based scoring
         source_scores = {
             LeadSource.REFERRAL: 30,
@@ -257,20 +279,20 @@ class LeadKernel(BaseKernel):
             LeadSource.WALK_IN: 35,
             LeadSource.EVENT: 20,
             LeadSource.SOCIAL_MEDIA: 10,
-            LeadSource.ADVERTISING: 15
+            LeadSource.ADVERTISING: 15,
         }
         score += source_scores.get(lead.source, 10)
-        
+
         # Custom field scoring (industry-specific)
         custom_score = await self._calculate_custom_field_score(lead.custom_fields)
         score += custom_score
-        
+
         return min(score, 100)  # Cap at 100
-    
+
     async def _calculate_custom_field_score(self, custom_fields: Dict[str, Any]) -> int:
         """Calculate score from custom fields"""
         score = 0
-        
+
         # Budget information
         if "budget" in custom_fields:
             budget = custom_fields.get("budget", "")
@@ -278,13 +300,13 @@ class LeadKernel(BaseKernel):
                 score += 20
             elif "medium" in str(budget).lower():
                 score += 10
-        
+
         # Urgency
         if "urgency" in custom_fields:
             urgency = custom_fields.get("urgency", "")
             if "immediate" in str(urgency).lower() or "asap" in str(urgency).lower():
                 score += 15
-        
+
         # Team size (for coworking)
         if "team_size" in custom_fields:
             try:
@@ -297,41 +319,62 @@ class LeadKernel(BaseKernel):
                     score += 5
             except (ValueError, TypeError):
                 pass
-        
+
         return score
-    
+
     # Form Management
     async def create_form(self, tenant_id: str, form_data: Dict[str, Any]) -> FormModel:
         """Create a new lead capture form"""
         form = FormModel(tenant_id=tenant_id, **form_data)
-        await self.forms_collection.insert_one(form.dict())
+        from models.postgresql_models import Form
+
+        async with self.connection_manager.get_session() as session:
+            form_obj = Form(**form.dict())
+            session.add(form_obj)
+            await session.commit()
         return form
-    
+
     async def get_form_by_id(self, tenant_id: str, form_id: str) -> Optional[FormModel]:
         """Get form by ID"""
-        doc = await self.forms_collection.find_one({
-            "tenant_id": tenant_id,
-            "id": form_id
-        })
-        return FormModel(**doc) if doc else None
-    
-    async def list_forms(self, tenant_id: str, active_only: bool = True) -> List[FormModel]:
+        from sqlalchemy import select
+
+        from models.postgresql_models import Form
+
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                select(Form).where(Form.tenant_id == tenant_id, Form.id == form_id)
+            )
+            form = result.scalar_one_or_none()
+            return FormModel(**form.__dict__) if form else None
+
+    async def list_forms(
+        self, tenant_id: str, active_only: bool = True
+    ) -> List[FormModel]:
         """List forms for tenant"""
-        query = {"tenant_id": tenant_id}
-        if active_only:
-            query["is_active"] = True
-        
-        cursor = self.forms_collection.find(query).sort("created_at", -1)
-        docs = await cursor.to_list(length=None)
-        
-        return [FormModel(**doc) for doc in docs]
-    
-    async def submit_form(self, tenant_id: str, form_id: str, submission_data: Dict[str, Any]) -> LeadModel:
+
+        from sqlalchemy import select
+
+        from models.postgresql_models import Form
+
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [Form.tenant_id == tenant_id]
+            if active_only:
+                query_conditions.append(Form.is_active is True)
+
+            result = await session.execute(
+                select(Form).where(*query_conditions).order_by(Form.created_at.desc())
+            )
+            forms = result.scalars().all()
+            return [FormModel(**form.__dict__) for form in forms]
+
+    async def submit_form(
+        self, tenant_id: str, form_id: str, submission_data: Dict[str, Any]
+    ) -> LeadModel:
         """Process form submission and create lead"""
         form = await self.get_form_by_id(tenant_id, form_id)
         if not form or not form.is_active:
             raise ValueError("Form not found or inactive")
-        
+
         # Extract lead data from submission
         lead_data = {
             "first_name": submission_data.get("first_name", ""),
@@ -340,20 +383,23 @@ class LeadKernel(BaseKernel):
             "phone": submission_data.get("phone"),
             "company": submission_data.get("company"),
             "source": form.lead_source,
-            "custom_fields": {k: v for k, v in submission_data.items() 
-                            if k not in ["first_name", "last_name", "email", "phone", "company"]},
-            "assigned_to": form.auto_assign_to
+            "custom_fields": {
+                k: v
+                for k, v in submission_data.items()
+                if k not in ["first_name", "last_name", "email", "phone", "company"]
+            },
+            "assigned_to": form.auto_assign_to,
         }
-        
+
         # Create lead
         lead = await self.create_lead(tenant_id, lead_data)
-        
+
         # Send notifications if configured
         if form.email_notifications:
             await self._send_form_notifications(form, lead, submission_data)
-        
+
         return lead
-    
+
     # Tour Scheduling
     async def create_tour_slots(
         self,
@@ -362,180 +408,243 @@ class LeadKernel(BaseKernel):
         start_date: datetime,
         end_date: datetime,
         duration_minutes: int = 30,
-        slots_per_day: int = 8
+        slots_per_day: int = 8,
     ) -> List[TourSlotModel]:
         """Create tour slots for a date range"""
         slots = []
         current_date = start_date.date()
         end_date_only = end_date.date()
-        
+
         while current_date <= end_date_only:
             # Create slots for each day (9 AM to 5 PM by default)
             for hour in range(9, 17):
                 if len(slots) >= slots_per_day:
                     break
-                
-                slot_datetime = datetime.combine(current_date, datetime.min.time().replace(hour=hour))
-                
+
+                slot_datetime = datetime.combine(
+                    current_date, datetime.min.time().replace(hour=hour)
+                )
+
                 slot = TourSlotModel(
                     tenant_id=tenant_id,
                     staff_user_id=staff_user_id,
                     date=slot_datetime,
-                    duration_minutes=duration_minutes
+                    duration_minutes=duration_minutes,
                 )
-                
-                await self.tour_slots_collection.insert_one(slot.dict())
+
+                from models.postgresql_models import TourSlot
+
+                async with self.connection_manager.get_session() as session:
+                    slot_obj = TourSlot(**slot.dict())
+                    session.add(slot_obj)
+                    await session.commit()
                 slots.append(slot)
-            
+
             current_date += timedelta(days=1)
-        
+
         return slots
-    
+
     async def get_available_tour_slots(
         self,
         tenant_id: str,
         start_date: datetime,
         end_date: datetime,
-        staff_user_id: Optional[str] = None
+        staff_user_id: Optional[str] = None,
     ) -> List[TourSlotModel]:
         """Get available tour slots"""
-        query = {
-            "tenant_id": tenant_id,
-            "date": {"$gte": start_date, "$lte": end_date},
-            "is_available": True,
-            "$expr": {"$lt": ["$current_bookings", "$max_bookings"]}
-        }
-        
-        if staff_user_id:
-            query["staff_user_id"] = staff_user_id
-        
-        cursor = self.tour_slots_collection.find(query).sort("date", 1)
-        docs = await cursor.to_list(length=None)
-        
-        return [TourSlotModel(**doc) for doc in docs]
-    
+        from sqlalchemy import and_, select
+
+        from models.postgresql_models import TourSlot
+
+        async with self.connection_manager.get_session() as session:
+            query_conditions = [
+                TourSlot.tenant_id == tenant_id,
+                TourSlot.date >= start_date,
+                TourSlot.date <= end_date,
+                TourSlot.is_available is True,
+                TourSlot.current_bookings < TourSlot.max_bookings,
+            ]
+
+            if staff_user_id:
+                query_conditions.append(TourSlot.staff_user_id == staff_user_id)
+
+            result = await session.execute(
+                select(TourSlot).where(and_(*query_conditions)).order_by(TourSlot.date)
+            )
+            slots = result.scalars().all()
+            return [TourSlotModel(**slot.__dict__) for slot in slots]
+
     async def schedule_tour(
         self,
         tenant_id: str,
         lead_id: str,
         tour_slot_id: str,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
     ) -> bool:
         """Schedule a tour for a lead"""
-        # Check if slot is available
-        slot = await self.tour_slots_collection.find_one({
-            "tenant_id": tenant_id,
-            "id": tour_slot_id,
-            "is_available": True,
-            "$expr": {"$lt": ["$current_bookings", "$max_bookings"]}
-        })
-        
-        if not slot:
-            return False
-        
-        # Update lead with tour information
-        tour_updates = {
-            "status": LeadStatus.TOUR_SCHEDULED,
-            "tour_scheduled_at": slot["date"],
-            "tour_notes": notes,
-            "updated_at": datetime.utcnow()
-        }
-        
-        lead_result = await self.leads_collection.update_one(
-            {"tenant_id": tenant_id, "id": lead_id},
-            {"$set": tour_updates}
-        )
-        
-        if lead_result.modified_count == 0:
-            return False
-        
-        # Update slot booking count
-        await self.tour_slots_collection.update_one(
-            {"tenant_id": tenant_id, "id": tour_slot_id},
-            {"$inc": {"current_bookings": 1}}
-        )
-        
+        from sqlalchemy import select, update
+
+        from models.postgresql_models import Lead, TourSlot
+
+        async with self.connection_manager.get_session() as session:
+            # Check if slot is available
+            result = await session.execute(
+                select(TourSlot).where(
+                    TourSlot.tenant_id == tenant_id,
+                    TourSlot.id == tour_slot_id,
+                    TourSlot.is_available is True,
+                    TourSlot.current_bookings < TourSlot.max_bookings,
+                )
+            )
+            slot = result.scalar_one_or_none()
+
+            if not slot:
+                return False
+
+            # Update lead with tour information
+            tour_updates = {
+                "status": LeadStatus.TOUR_SCHEDULED,
+                "tour_scheduled_at": slot.date,
+                "tour_notes": notes,
+                "updated_at": datetime.utcnow(),
+            }
+
+            lead_result = await session.execute(
+                update(Lead)
+                .where(Lead.tenant_id == tenant_id, Lead.id == lead_id)
+                .values(**tour_updates)
+            )
+
+            if lead_result.rowcount == 0:
+                return False
+
+            # Update slot booking count
+            await session.execute(
+                update(TourSlot)
+                .where(TourSlot.tenant_id == tenant_id, TourSlot.id == tour_slot_id)
+                .values(current_bookings=TourSlot.current_bookings + 1)
+            )
+
+            await session.commit()
+
         # Log activity
         await self._log_lead_activity(
-            tenant_id, lead_id, "tour_scheduled",
-            {"tour_slot_id": tour_slot_id, "scheduled_at": slot["date"]}
+            tenant_id,
+            lead_id,
+            "tour_scheduled",
+            {"tour_slot_id": tour_slot_id, "scheduled_at": slot.date},
         )
-        
+
         return True
-    
+
     async def complete_tour(
         self,
         tenant_id: str,
         lead_id: str,
         notes: Optional[str] = None,
-        outcome: str = "completed"
+        outcome: str = "completed",
     ) -> bool:
         """Mark tour as completed"""
         updates = {
             "status": LeadStatus.TOUR_COMPLETED,
             "tour_completed_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "updated_at": datetime.utcnow(),
         }
-        
+
         if notes:
             updates["tour_notes"] = notes
-        
-        result = await self.leads_collection.update_one(
-            {"tenant_id": tenant_id, "id": lead_id},
-            {"$set": updates}
-        )
-        
+
+        from sqlalchemy import update
+
+        from models.postgresql_models import Lead
+
+        async with self.connection_manager.get_session() as session:
+            result = await session.execute(
+                update(Lead)
+                .where(Lead.tenant_id == tenant_id, Lead.id == lead_id)
+                .values(**updates)
+            )
+            await session.commit()
+
         if result.modified_count > 0:
             await self._log_lead_activity(
-                tenant_id, lead_id, "tour_completed",
-                {"outcome": outcome, "notes": notes}
+                tenant_id,
+                lead_id,
+                "tour_completed",
+                {"outcome": outcome, "notes": notes},
             )
-        
+
         return result.modified_count > 0
-    
+
     # Analytics and Reporting
-    async def get_lead_analytics(self, tenant_id: str, days: int = 30) -> Dict[str, Any]:
+    async def get_lead_analytics(
+        self, tenant_id: str, days: int = 30
+    ) -> Dict[str, Any]:
         """Get lead analytics for the specified period"""
         start_date = datetime.utcnow() - timedelta(days=days)
-        
+
         # Total leads
-        total_leads = await self.leads_collection.count_documents({
-            "tenant_id": tenant_id,
-            "created_at": {"$gte": start_date}
-        })
-        
+        total_leads = await self.leads_collection.count_documents(
+            {"tenant_id": tenant_id, "created_at": {"$gte": start_date}}
+        )
+
         # Leads by status
         status_pipeline = [
-            {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start_date}}},
-            {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+            {
+                "$match": {
+                    "tenant_id": tenant_id,
+                    "created_at": {"$gte": start_date},
+                }
+            },
+            {"$group": {"_id": "$status", "count": {"$sum": 1}}},
         ]
-        status_results = await self.leads_collection.aggregate(status_pipeline).to_list(None)
+        status_results = await self.leads_collection.aggregate(status_pipeline).to_list(
+            None
+        )
         status_breakdown = {result["_id"]: result["count"] for result in status_results}
-        
+
         # Leads by source
         source_pipeline = [
-            {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start_date}}},
-            {"$group": {"_id": "$source", "count": {"$sum": 1}}}
+            {
+                "$match": {
+                    "tenant_id": tenant_id,
+                    "created_at": {"$gte": start_date},
+                }
+            },
+            {"$group": {"_id": "$source", "count": {"$sum": 1}}},
         ]
-        source_results = await self.leads_collection.aggregate(source_pipeline).to_list(None)
+        source_results = await self.leads_collection.aggregate(source_pipeline).to_list(
+            None
+        )
         source_breakdown = {result["_id"]: result["count"] for result in source_results}
-        
+
         # Conversion rate
-        converted_leads = await self.leads_collection.count_documents({
-            "tenant_id": tenant_id,
-            "status": LeadStatus.CONVERTED,
-            "created_at": {"$gte": start_date}
-        })
-        conversion_rate = (converted_leads / total_leads * 100) if total_leads > 0 else 0
-        
+        converted_leads = await self.leads_collection.count_documents(
+            {
+                "tenant_id": tenant_id,
+                "status": LeadStatus.CONVERTED,
+                "created_at": {"$gte": start_date},
+            }
+        )
+        conversion_rate = (
+            (converted_leads / total_leads * 100) if total_leads > 0 else 0
+        )
+
         # Average lead score
         score_pipeline = [
-            {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start_date}}},
-            {"$group": {"_id": None, "avg_score": {"$avg": "$score"}}}
+            {
+                "$match": {
+                    "tenant_id": tenant_id,
+                    "created_at": {"$gte": start_date},
+                }
+            },
+            {"$group": {"_id": None, "avg_score": {"$avg": "$score"}}},
         ]
-        score_results = await self.leads_collection.aggregate(score_pipeline).to_list(None)
+        score_results = await self.leads_collection.aggregate(score_pipeline).to_list(
+            None
+        )
         avg_score = score_results[0]["avg_score"] if score_results else 0
-        
+
         return {
             "total_leads": total_leads,
             "converted_leads": converted_leads,
@@ -543,16 +652,16 @@ class LeadKernel(BaseKernel):
             "average_score": round(avg_score, 1),
             "status_breakdown": status_breakdown,
             "source_breakdown": source_breakdown,
-            "period_days": days
+            "period_days": days,
         }
-    
+
     # Helper Methods
     async def _log_lead_activity(
         self,
         tenant_id: str,
         lead_id: str,
         activity_type: str,
-        details: Dict[str, Any]
+        details: Dict[str, Any],
     ):
         """Log lead activity for audit trail"""
         activity = {
@@ -561,42 +670,47 @@ class LeadKernel(BaseKernel):
             "lead_id": lead_id,
             "activity_type": activity_type,
             "details": details,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         }
-        
+
         await self.lead_activities_collection.insert_one(activity)
-    
+
     async def _send_form_notifications(
-        self,
-        form: FormModel,
-        lead: LeadModel,
-        submission_data: Dict[str, Any]
+        self, form: FormModel, lead: LeadModel, submission_data: Dict[str, Any]
     ):
         """Send email notifications for form submissions"""
         # This would integrate with the communication kernel
         # For now, just log the notification
-        print(f"Sending form notification for lead {lead.id} to {form.email_notifications}")
-    
+        print(
+            f"Sending form notification for lead {lead.id} to "
+            f"{form.email_notifications}"
+        )
+
     async def validate_tenant_access(self, tenant_id: str, user_id: str) -> bool:
         """Validate user access to tenant leads"""
         # This would check if user belongs to tenant
         # For now, return True
         return True
-    
+
     async def get_kernel_health(self) -> Dict[str, Any]:
         """Get kernel health status"""
         try:
             # Test database connectivity
             await self.leads_collection.find_one({"tenant_id": "health_check"})
-            
+
             return {
                 "status": "healthy",
-                "collections": ["leads", "forms", "tour_slots", "lead_activities"],
-                "last_check": datetime.utcnow().isoformat()
+                "collections": [
+                    "leads",
+                    "forms",
+                    "tour_slots",
+                    "lead_activities",
+                ],
+                "last_check": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "last_check": datetime.utcnow().isoformat()
+                "last_check": datetime.utcnow().isoformat(),
             }

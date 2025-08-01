@@ -3,29 +3,29 @@
 Seed demo data for the Space Management Platform
 """
 import asyncio
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
 import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+from passlib.context import CryptContext
+
+from database.config.connection_pool import PostgreSQLConnectionManager
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
 # Database connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+connection_manager = PostgreSQLConnectionManager()
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 async def seed_demo_data():
     print("🌱 Seeding demo data...")
-    
+
     # Create demo tenant
     tenant_id = str(uuid.uuid4())
     tenant = {
@@ -44,15 +44,20 @@ async def seed_demo_data():
                 "thursday": {"open": "09:00", "close": "18:00"},
                 "friday": {"open": "09:00", "close": "18:00"},
                 "saturday": {"open": "10:00", "close": "16:00"},
-                "sunday": {"closed": True}
-            }
+                "sunday": {"closed": True},
+            },
         },
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
     }
-    
-    await db.tenants.insert_one(tenant)
+
+    from models.postgresql_models import Tenant
+
+    async with connection_manager.get_session() as session:
+        tenant_obj = Tenant(**tenant)
+        session.add(tenant_obj)
+        await session.commit()
     print(f"✅ Created tenant: {tenant['name']}")
-    
+
     # Create demo users
     users = [
         {
@@ -66,7 +71,7 @@ async def seed_demo_data():
             "membership_tier": None,
             "created_at": datetime.utcnow(),
             "last_login": None,
-            "password": "password123"
+            "password": "password123",
         },
         {
             "id": str(uuid.uuid4()),
@@ -79,7 +84,7 @@ async def seed_demo_data():
             "membership_tier": None,
             "created_at": datetime.utcnow(),
             "last_login": None,
-            "password": "password123"
+            "password": "password123",
         },
         {
             "id": str(uuid.uuid4()),
@@ -92,7 +97,7 @@ async def seed_demo_data():
             "membership_tier": "premium",
             "created_at": datetime.utcnow(),
             "last_login": None,
-            "password": "password123"
+            "password": "password123",
         },
         {
             "id": str(uuid.uuid4()),
@@ -105,22 +110,28 @@ async def seed_demo_data():
             "membership_tier": "basic",
             "created_at": datetime.utcnow(),
             "last_login": None,
-            "password": "password123"
-        }
+            "password": "password123",
+        },
     ]
-    
+
     for user in users:
         password = user.pop("password")
         hashed_password = pwd_context.hash(password)
-        
-        await db.users.insert_one(user)
-        await db.user_passwords.insert_one({
-            "user_id": user["id"],
-            "hashed_password": hashed_password
-        })
-        
+
+        from models.postgresql_models import User, UserPassword
+
+        async with connection_manager.get_session() as session:
+            user_obj = User(**user)
+            session.add(user_obj)
+
+            user_password = UserPassword(
+                user_id=user["id"], hashed_password=hashed_password
+            )
+            session.add(user_password)
+            await session.commit()
+
         print(f"✅ Created user: {user['email']} (role: {user['role']})")
-    
+
     # Create demo resources
     resources = [
         {
@@ -134,7 +145,7 @@ async def seed_demo_data():
             "hourly_rate": 25.00,
             "is_bookable": True,
             "is_active": True,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         },
         {
             "id": str(uuid.uuid4()),
@@ -143,11 +154,17 @@ async def seed_demo_data():
             "type": "room",
             "parent_id": None,
             "capacity": 12,
-            "amenities": ["Projector", "Whiteboard", "WiFi", "Video Conferencing", "Catering Setup"],
+            "amenities": [
+                "Projector",
+                "Whiteboard",
+                "WiFi",
+                "Video Conferencing",
+                "Catering Setup",
+            ],
             "hourly_rate": 35.00,
             "is_bookable": True,
             "is_active": True,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         },
         {
             "id": str(uuid.uuid4()),
@@ -160,7 +177,7 @@ async def seed_demo_data():
             "hourly_rate": 5.00,
             "is_bookable": True,
             "is_active": True,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         },
         {
             "id": str(uuid.uuid4()),
@@ -173,7 +190,7 @@ async def seed_demo_data():
             "hourly_rate": 5.00,
             "is_bookable": True,
             "is_active": True,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         },
         {
             "id": str(uuid.uuid4()),
@@ -186,7 +203,7 @@ async def seed_demo_data():
             "hourly_rate": 8.00,
             "is_bookable": True,
             "is_active": True,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         },
         {
             "id": str(uuid.uuid4()),
@@ -199,7 +216,7 @@ async def seed_demo_data():
             "hourly_rate": 15.00,
             "is_bookable": True,
             "is_active": True,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
         },
         {
             "id": str(uuid.uuid4()),
@@ -212,14 +229,19 @@ async def seed_demo_data():
             "hourly_rate": None,
             "is_bookable": False,
             "is_active": True,
-            "created_at": datetime.utcnow()
-        }
+            "created_at": datetime.utcnow(),
+        },
     ]
-    
-    for resource in resources:
-        await db.resources.insert_one(resource)
-        print(f"✅ Created resource: {resource['name']} ({resource['type']})")
-    
+
+    from models.postgresql_models import Resource
+
+    async with connection_manager.get_session() as session:
+        for resource in resources:
+            resource_obj = Resource(**resource)
+            session.add(resource_obj)
+            await session.commit()
+            print(f"✅ Created resource: {resource['name']} ({resource['type']})")
+
     # Create some demo bookings
     now = datetime.utcnow()
     bookings = [
@@ -234,7 +256,7 @@ async def seed_demo_data():
             "attendees": 5,
             "notes": "Weekly team meeting",
             "total_cost": 50.00,
-            "created_at": now
+            "created_at": now,
         },
         {
             "id": str(uuid.uuid4()),
@@ -247,7 +269,7 @@ async def seed_demo_data():
             "attendees": 1,
             "notes": "Working on project presentation",
             "total_cost": 20.00,
-            "created_at": now
+            "created_at": now,
         },
         {
             "id": str(uuid.uuid4()),
@@ -260,14 +282,19 @@ async def seed_demo_data():
             "attendees": 8,
             "notes": "Client presentation",
             "total_cost": 35.00,
-            "created_at": now - timedelta(hours=3)
-        }
+            "created_at": now - timedelta(hours=3),
+        },
     ]
-    
-    for booking in bookings:
-        await db.bookings.insert_one(booking)
-        print(f"✅ Created booking: {booking['notes']}")
-    
+
+    from models.postgresql_models import Booking
+
+    async with connection_manager.get_session() as session:
+        for booking in bookings:
+            booking_obj = Booking(**booking)
+            session.add(booking_obj)
+            await session.commit()
+            print(f"✅ Created booking: {booking['notes']}")
+
     print("\n🎉 Demo data seeded successfully!")
     print("\nDemo Login Credentials:")
     print("- Tenant: demo")
@@ -276,9 +303,10 @@ async def seed_demo_data():
     print("- Member: john@demo.com / password123")
     print("- Member: jane@demo.com / password123")
 
+
 async def main():
     await seed_demo_data()
-    client.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
