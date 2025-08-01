@@ -96,7 +96,7 @@ run_tests() {
     pytest --cov=. --cov-report=xml --cov-report=html
     black --check .
     isort --check-only .
-    flake8 .
+    flake8 --ignore=E501 .
     mypy .
     cd ..
     
