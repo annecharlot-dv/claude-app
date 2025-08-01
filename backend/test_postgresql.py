@@ -15,6 +15,7 @@ from kernels.postgresql_identity_kernel import PostgreSQLIdentityKernel
 from models.postgresql_models import Tenant, User
 import logging
 import pytest
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,6 +23,10 @@ logger = logging.getLogger(__name__)
 @pytest.mark.asyncio
 async def test_postgresql_setup():
     """Test PostgreSQL setup and basic operations"""
+    
+    if not os.getenv('DATABASE_URL'):
+        pytest.skip("DATABASE_URL not configured - skipping PostgreSQL integration test")
+    
     try:
         # Initialize connection manager
         connection_manager = await get_connection_manager()
